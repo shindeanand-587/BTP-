@@ -56,3 +56,4 @@ class VectorSurveyAdapter(BaseModelAdapter):
 
         duration = time.time() - t0
         return pred_mask, conf_map, max(0.015, duration), warnings
+

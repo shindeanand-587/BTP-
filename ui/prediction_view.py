@@ -370,10 +370,11 @@ def render_prediction_page():
 
             v_skel = getattr(bundle, "vector_centerlines", None)
             v_tot_km = getattr(bundle, "total_vector_length_km", None)
+            is_vec = getattr(bundle, "is_vector", False)
             road_corridors = extract_actionable_road_corridors(
                 pred_mask == 4,
                 gsd_m=gsd_val,
-                bridge_shadow_gaps=True,
+                bridge_shadow_gaps=(not is_vec),
                 centerline_override=v_skel,
                 total_length_km_override=v_tot_km
             )
@@ -463,10 +464,11 @@ def render_prediction_page():
         if "arterial_junction_mask" not in road_corridors:
             v_skel = getattr(b_res, "vector_centerlines", None)
             v_tot_km = getattr(b_res, "total_vector_length_km", None)
+            is_vec_b = getattr(b_res, "is_vector", False)
             road_corridors = extract_actionable_road_corridors(
                 res["pred_mask"] == 4,
                 gsd_m=gsd_val,
-                bridge_shadow_gaps=True,
+                bridge_shadow_gaps=(not is_vec_b),
                 centerline_override=v_skel,
                 total_length_km_override=v_tot_km
             )
@@ -574,12 +576,12 @@ def render_prediction_page():
                         horizontal=False
                     )
                     road_prob_thresh = st.slider(
-                        "🎚️ Road Detection Sensitivity (%):",
+                        "🎚️ Road Confidence Threshold (%):",
                         min_value=10,
                         max_value=60,
                         value=25,
                         step=5,
-                        help="Adjusts confidence threshold. Lower values (e.g. 15-25%) reveal faint residential lanes, complete runways, and highways."
+                        help="Confidence acceptance cutoff. 20-25% is calibrated for optical satellite imagery and airport runways. Higher values (>50%) require strict certainty and may filter out secondary lanes."
                     ) / 100.0
 
                 with c_skel:
@@ -594,16 +596,21 @@ def render_prediction_page():
                     gsd_val = 1.24
                 v_skel = getattr(bundle, "vector_centerlines", None)
                 v_tot_km = getattr(bundle, "total_vector_length_km", None)
+                is_vec_active = getattr(bundle, "is_vector", False)
                 road_prob = prob_map[4]
                 dynamic_road_mask = (road_prob >= road_prob_thresh)
                 active_road_corridors = extract_actionable_road_corridors(
                     dynamic_road_mask,
                     gsd_m=gsd_val,
-                    bridge_shadow_gaps=True,
+                    bridge_shadow_gaps=(not is_vec_active),
                     centerline_override=v_skel,
                     total_length_km_override=v_tot_km
                 )
                 res["road_corridors"] = active_road_corridors
+
+                # Safety tip if high threshold filtered out roads
+                if not active_road_corridors.get("has_roads") and (road_prob.max() > 0.10):
+                    st.warning(f"⚠️ At {int(road_prob_thresh*100)}% confidence threshold, faint corridors were filtered out. Lower the slider to 20–25% to display the full network.")
 
                 # Determine active road mask based on user filter
                 if "Major Arterials" in road_view_tier and active_road_corridors.get("has_roads"):
@@ -645,19 +652,20 @@ def render_prediction_page():
                                  int(round(y * (h_disp - 1) / max(1, h_b - 1))))
                                 for x, y in l_pts
                             ]
-                            # Outer white casing (6px) + Vivid crimson medial axis (3px)
-                            draw_vec.line(disp_pts, fill=(255, 255, 255), width=6)
-                            draw_vec.line(disp_pts, fill=(220, 38, 38), width=3)
+                            # Outer white casing (4px) + Vivid crimson medial axis (2px)
+                            draw_vec.line(disp_pts, fill=(255, 255, 255), width=4)
+                            draw_vec.line(disp_pts, fill=(220, 38, 38), width=2)
                         road_spotlight = np.array(pil_spot)
                     elif active_centerline.any():
                         # Nearest-neighbor resize to display canvas so 1px centerlines are never blurred or lost!
                         pil_skel = Image.fromarray((active_centerline * 255).astype(np.uint8)).resize(
                             (w_disp, h_disp), resample=Image.Resampling.NEAREST
                         )
+                        thin_core = np.array(pil_skel, dtype=bool)
                         thick = np.array(pil_skel.filter(ImageFilter.MaxFilter(3)), dtype=bool)
-                        halo = np.array(pil_skel.filter(ImageFilter.MaxFilter(5)), dtype=bool) & (~thick)
-                        road_spotlight[halo] = [255, 255, 255] # Clean white casing halo
-                        road_spotlight[thick] = [220, 38, 38] # Vivid crimson medial axis
+                        halo = thick & (~thin_core)
+                        road_spotlight[halo] = [255, 255, 255] # Clean 1px white casing halo
+                        road_spotlight[thin_core] = [220, 38, 38] # Exact 1px vivid crimson medial axis
 
                 # Draw pinpoint junction nodes cleanly without obscuring roads
                 if show_junctions:
@@ -1178,6 +1186,9 @@ def render_prediction_page():
         # PERSPECTIVE 6: Full Multi-Class Overview
         # =====================================================================
         elif perspective == "🌐 Full Multi-Class Overview":
+            if getattr(bundle, "is_vector", False):
+                st.info("🗺️ **Vector Shapefile CAD Mode**: This input is an ESRI Shapefile containing surveyed cadastre vector geometries (Roads) rather than a multispectral raster satellite image. All 100% of surveyed road corridors are extracted with exact precision. To inspect full 5-class Earth Observation AI predictions (Water, Vegetation, Built-up, Roads, Barren), select an optical/multispectral GeoTIFF (.tif) scene.")
+
             col_viewer, col_analytics = st.columns([1.18, 1.0], gap="large")
 
             with col_viewer:

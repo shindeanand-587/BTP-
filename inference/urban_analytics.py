@@ -243,12 +243,12 @@ def extract_junction_nodes(skel: np.ndarray, min_dist: int = 20) -> np.ndarray:
 
     return clean_junc
 
-def directional_road_gap_closing(mask: np.ndarray, radius: int = 14) -> np.ndarray:
+def directional_road_gap_closing(mask: np.ndarray, radius: int = 4) -> np.ndarray:
     """
     Directional linear morphological closing along 8 canonical road/runway headings:
     0 deg (horiz), 90 deg (vert), 45 deg, 135 deg, 26.5 deg, 63.5 deg, 116.5 deg, 153.5 deg.
-    Bridges road shadow discontinuities, runway markings, and highway breaks up to 28-30 pixels
-    WITHOUT bloating roads perpendicularly into surrounding buildings.
+    Bridges road shadow discontinuities, runway markings, and highway breaks up to 8-10 pixels
+    WITHOUT bloating roads perpendicularly into surrounding buildings or bridging across city blocks.
     """
     if not mask.any():
         return mask
@@ -300,7 +300,7 @@ def extract_actionable_road_corridors(
 ) -> Dict[str, Any]:
     """
     Transforms raw, broken road segmentation masks into continuous, survey-ready corridors:
-    - Directional collinear linear closing bridges shadow breaks and runway gaps up to 13 pixels.
+    - Directional collinear linear closing bridges shadow breaks and runway gaps up to 8-10 pixels.
     - Classifies corridors into Major Arterials / Runways (unbroken corridors) vs Minor Streets / Alleys.
     - Extracts smooth medial axis centerlines via Zhang-Suen thinning (or direct vector geometry).
     """
@@ -326,9 +326,11 @@ def extract_actionable_road_corridors(
             "corridor_table": []
         }
 
-    # 1. Directional Collinear Gap-Closing across building shadows and runway texture gaps
-    if bridge_shadow_gaps:
-        working_mask = directional_road_gap_closing(road_mask, radius=14)
+    # 1. Directional Collinear Gap-Closing across building shadows and runway texture gaps.
+    # Note: If centerline_override is provided (e.g. from vector shapefile), gap-closing is bypassed
+    # because vector geometry already represents surveyed cadastral polygons with zero optical shadows.
+    if bridge_shadow_gaps and centerline_override is None:
+        working_mask = directional_road_gap_closing(road_mask, radius=4)
     else:
         working_mask = road_mask.copy()
 
