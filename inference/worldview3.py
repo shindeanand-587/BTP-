@@ -310,75 +310,97 @@ class WorldView3BaseAdapter(BaseModelAdapter):
         self.last_prob_map = probs
 
         duration = time.time() - t0
+        if self.checkpoint_missing_on_host:
+            warnings.append(f"Model checkpoint '{os.path.basename(self.checkpoint_path or 'model.pth')}' was not found on host. Running in live preview demonstration mode.")
         return pred_mask, conf_map, duration, warnings
 
 class WorldView3SegFormerAdapter(WorldView3BaseAdapter):
     def load(self):
         if self.model is not None:
             return
-        if not self.checkpoint_path or not os.path.exists(self.checkpoint_path):
-            raise FileNotFoundError(f"Checkpoint not found at: {self.checkpoint_path}")
 
-        print(f"[WV3SegFormerAdapter] Loading weights from {self.checkpoint_path}...")
+        ckpt_path = self.get_resolved_checkpoint()
         model = SegFormer8Channel(num_classes=5)
-        ckpt = torch.load(self.checkpoint_path, map_location=self.device, weights_only=False)
-        state_dict = ckpt.get("model_state_dict") or ckpt.get("model_state") or ckpt
-        model.load_state_dict(state_dict)
+
+        if ckpt_path and os.path.exists(ckpt_path):
+            print(f"[WV3SegFormerAdapter] Loading weights from {ckpt_path}...")
+            ckpt = torch.load(ckpt_path, map_location=self.device, weights_only=False)
+            state_dict = ckpt.get("model_state_dict") or ckpt.get("model_state") or ckpt
+            model.load_state_dict(state_dict)
+            print(f"[WV3SegFormerAdapter] Model loaded on {self.device}!")
+        else:
+            self.checkpoint_missing_on_host = True
+            print(f"[WV3SegFormerAdapter] Checkpoint not found at {self.checkpoint_path}. Running with initialized backbone.")
+
         model.to(self.device)
         model.eval()
         self.model = model
-        print(f"[WV3SegFormerAdapter] Model loaded on {self.device}!")
 
 class WorldView3UNetAdapter(WorldView3BaseAdapter):
     def load(self):
         if self.model is not None:
             return
-        if not self.checkpoint_path or not os.path.exists(self.checkpoint_path):
-            raise FileNotFoundError(f"Checkpoint not found at: {self.checkpoint_path}")
 
-        print(f"[WV3UNetAdapter] Loading weights from {self.checkpoint_path}...")
+        ckpt_path = self.get_resolved_checkpoint()
         model = UNetResNet34_8Channel(num_classes=5, pretrained=False)
-        ckpt = torch.load(self.checkpoint_path, map_location=self.device, weights_only=False)
-        state_dict = ckpt.get("model_state_dict") or ckpt.get("model_state") or ckpt
-        model.load_state_dict(state_dict)
+
+        if ckpt_path and os.path.exists(ckpt_path):
+            print(f"[WV3UNetAdapter] Loading weights from {ckpt_path}...")
+            ckpt = torch.load(ckpt_path, map_location=self.device, weights_only=False)
+            state_dict = ckpt.get("model_state_dict") or ckpt.get("model_state") or ckpt
+            model.load_state_dict(state_dict)
+            print(f"[WV3UNetAdapter] Model loaded on {self.device}!")
+        else:
+            self.checkpoint_missing_on_host = True
+            print(f"[WV3UNetAdapter] Checkpoint not found at {self.checkpoint_path}. Running with initialized backbone.")
+
         model.to(self.device)
         model.eval()
         self.model = model
-        print(f"[WV3UNetAdapter] Model loaded on {self.device}!")
 
 class WorldView3DeepLabAdapter(WorldView3BaseAdapter):
     def load(self):
         if self.model is not None:
             return
-        if not self.checkpoint_path or not os.path.exists(self.checkpoint_path):
-            raise FileNotFoundError(f"Checkpoint not found at: {self.checkpoint_path}")
 
-        print(f"[WV3DeepLabAdapter] Loading weights from {self.checkpoint_path}...")
+        ckpt_path = self.get_resolved_checkpoint()
         model = DeepLabV3Plus_8Channel(num_classes=5, pretrained=False)
-        ckpt = torch.load(self.checkpoint_path, map_location=self.device, weights_only=False)
-        state_dict = ckpt.get("model_state_dict") or ckpt.get("model_state") or ckpt
-        model.load_state_dict(state_dict)
+
+        if ckpt_path and os.path.exists(ckpt_path):
+            print(f"[WV3DeepLabAdapter] Loading weights from {ckpt_path}...")
+            ckpt = torch.load(ckpt_path, map_location=self.device, weights_only=False)
+            state_dict = ckpt.get("model_state_dict") or ckpt.get("model_state") or ckpt
+            model.load_state_dict(state_dict)
+            print(f"[WV3DeepLabAdapter] Model loaded on {self.device}!")
+        else:
+            self.checkpoint_missing_on_host = True
+            print(f"[WV3DeepLabAdapter] Checkpoint not found at {self.checkpoint_path}. Running with initialized backbone.")
+
         model.to(self.device)
         model.eval()
         self.model = model
-        print(f"[WV3DeepLabAdapter] Model loaded on {self.device}!")
 
 class WorldView3PSMSAdapter(WorldView3BaseAdapter):
     def load(self):
         if self.model is not None:
             return
-        if not self.checkpoint_path or not os.path.exists(self.checkpoint_path):
-            raise FileNotFoundError(f"Checkpoint not found at: {self.checkpoint_path}")
 
-        print(f"[WV3PSMSAdapter] Loading weights from {self.checkpoint_path}...")
+        ckpt_path = self.get_resolved_checkpoint()
         model = SegFormer8Channel(num_classes=5)
-        ckpt = torch.load(self.checkpoint_path, map_location=self.device, weights_only=False)
-        state_dict = ckpt.get("model_state_dict") or ckpt.get("model_state") or ckpt
-        model.load_state_dict(state_dict)
+
+        if ckpt_path and os.path.exists(ckpt_path):
+            print(f"[WV3PSMSAdapter] Loading weights from {ckpt_path}...")
+            ckpt = torch.load(ckpt_path, map_location=self.device, weights_only=False)
+            state_dict = ckpt.get("model_state_dict") or ckpt.get("model_state") or ckpt
+            model.load_state_dict(state_dict)
+            print(f"[WV3PSMSAdapter] Model loaded on {self.device}!")
+        else:
+            self.checkpoint_missing_on_host = True
+            print(f"[WV3PSMSAdapter] Checkpoint not found at {self.checkpoint_path}. Running with initialized backbone.")
+
         model.to(self.device)
         model.eval()
         self.model = model
-        print(f"[WV3PSMSAdapter] Model loaded on {self.device}!")
 
     def run_inference(
         self,

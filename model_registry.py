@@ -30,6 +30,22 @@ CLASS_MAPPING = {
     255: {"name": "Ignore / NoData", "color": "#292929", "rgb": (41, 41, 41), "desc": "Boundary bleed, nodata pixels, unannotated margin"}
 }
 
+def resolve_checkpoint_path(path: Optional[str]) -> str:
+    """Resolves local absolute path or relative ./checkpoints path for cloud deployment."""
+    if not path:
+        return ""
+    if os.path.exists(path):
+        return path
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    fname = os.path.basename(path)
+    cand1 = os.path.join(base_dir, "checkpoints", fname)
+    if os.path.exists(cand1):
+        return cand1
+    cand2 = os.path.join(base_dir, fname)
+    if os.path.exists(cand2):
+        return cand2
+    return cand1
+
 CORE_MODELS: Dict[str, Dict[str, Any]] = {
     # -------------------------------------------------------------
     # 1. WorldView-3 Native 1.24m SegFormer-B1 (Multispectral Best Overall)
@@ -45,7 +61,7 @@ CORE_MODELS: Dict[str, Dict[str, Any]] = {
         "supported_bands": ["Coastal", "Blue", "Green", "Yellow", "Red", "Red Edge", "NIR1", "NIR2"],
         "band_count": 8,
         "input_dimensions": "320x320 or Tiled",
-        "checkpoint_path": r"C:\BTP II\Multispectral_Project\experiments\highres_multispectral\native_1p24m\checkpoints\segformer_best.pth",
+        "checkpoint_path": resolve_checkpoint_path(r"C:\BTP II\Multispectral_Project\experiments\highres_multispectral\native_1p24m\checkpoints\segformer_best.pth"),
         "adapter_class": "WorldView3SegFormerAdapter",
         "status": "Ready",
         "is_ensemble": False,

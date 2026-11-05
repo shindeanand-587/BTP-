@@ -25,7 +25,9 @@ outputs/*.json
 outputs/*.geojson
 !outputs/.gitkeep
 
-# Checkpoint binaries (>50MB, download from HuggingFace/Drive)
+# Checkpoint binaries (>100MB blocked by GitHub)
 checkpoints/*.pth
+!checkpoints/segformer_best.pth
 checkpoints/*.pt
 checkpoints/*.bin
+

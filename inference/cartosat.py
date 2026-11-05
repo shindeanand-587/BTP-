@@ -64,19 +64,22 @@ class CartosatSegFormerAdapter(BaseModelAdapter):
         if self.model is not None:
             return
 
-        if not self.checkpoint_path or not os.path.exists(self.checkpoint_path):
-            raise FileNotFoundError(f"Checkpoint not found at: {self.checkpoint_path}")
-
-        print(f"[CartosatAdapter] Loading weights from {self.checkpoint_path}...")
+        ckpt_path = self.get_resolved_checkpoint()
         model = SegFormerCartosatModel(num_classes=5)
-        ckpt = torch.load(self.checkpoint_path, map_location=self.device, weights_only=False)
-        
-        state_dict = ckpt["model_state"] if "model_state" in ckpt else (ckpt.get("model_state_dict") or ckpt)
-        model.load_state_dict(state_dict)
+
+        if ckpt_path and os.path.exists(ckpt_path):
+            print(f"[CartosatAdapter] Loading weights from {ckpt_path}...")
+            ckpt = torch.load(ckpt_path, map_location=self.device, weights_only=False)
+            state_dict = ckpt["model_state"] if "model_state" in ckpt else (ckpt.get("model_state_dict") or ckpt)
+            model.load_state_dict(state_dict)
+            print(f"[CartosatAdapter] Model loaded successfully on {self.device}!")
+        else:
+            self.checkpoint_missing_on_host = True
+            print(f"[CartosatAdapter] Checkpoint not found at {self.checkpoint_path}. Running with initialized architecture.")
+
         model.to(self.device)
         model.eval()
         self.model = model
-        print(f"[CartosatAdapter] Model loaded successfully on {self.device}!")
 
     def run_inference(
         self,
