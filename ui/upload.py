@@ -33,9 +33,29 @@ SAMPLE_PRESETS = {
         "sensor": "High-Res Multispectral GeoTIFF (1.24m GSD)"
     },
     "navi_mumbai_roads_shp": {
-        "name": "🗺️ Navi Mumbai Official Road Survey Shapefile (.zip bundle)",
+        "name": "🗺️ Navi Mumbai Complete Road Network (.zip shapefile bundle)",
         "file": os.path.join(SAMPLE_DIR, "Navi_Mumbai_Road_Network_Shapefile.zip"),
         "sensor": "ESRI Vector Shapefile Bundle"
+    },
+    "vashi_sanpada_roads_shp": {
+        "name": "🗺️ Mumbai Vashi-Sanpada Urban Roads (.shp vector grid)",
+        "file": os.path.join(SAMPLE_DIR, "Mumbai_Vashi_Sanpada_Urban_Roads.shp"),
+        "sensor": "ESRI Vector Shapefile (.shp)"
+    },
+    "sion_panvel_highway_shp": {
+        "name": "🛣️ Mumbai Sion-Panvel Expressway Junction (.shp vector)",
+        "file": os.path.join(SAMPLE_DIR, "Mumbai_Sion_Panvel_Highway_Network.shp"),
+        "sensor": "ESRI Vector Shapefile (.shp)"
+    },
+    "bkc_commercial_roads_shp": {
+        "name": "🏢 Mumbai BKC Commercial Center Roads (.shp vector)",
+        "file": os.path.join(SAMPLE_DIR, "Mumbai_BKC_Commercial_Roads.shp"),
+        "sensor": "ESRI Vector Shapefile (.shp)"
+    },
+    "vashi_sanpada_buildings_shp": {
+        "name": "🏠 Mumbai Vashi-Sanpada Building Footprints (.shp vector parcels)",
+        "file": os.path.join(SAMPLE_DIR, "Mumbai_Vashi_Sanpada_Building_Footprints.shp"),
+        "sensor": "ESRI Vector Shapefile (.shp)"
     },
     "wv3_8band": {
         "name": "WorldView-3 Native 8-Band GeoTIFF (1.24m GSD, EPSG:4326)",
