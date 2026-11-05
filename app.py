@@ -54,16 +54,11 @@ if os.path.exists(CSS_PATH):
         custom_css = f.read()
     st.markdown(f"<style>{custom_css}</style>", unsafe_allow_html=True)
 
-# Import view modules with reload protection
+# Import view modules
 import ui.prediction_view
 import ui.comparison_view
 import ui.leaderboard_view
 import ui.teammate_hub
-
-importlib.reload(ui.prediction_view)
-importlib.reload(ui.comparison_view)
-importlib.reload(ui.leaderboard_view)
-importlib.reload(ui.teammate_hub)
 
 from ui.prediction_view import render_prediction_page
 from ui.comparison_view import render_comparison_page
