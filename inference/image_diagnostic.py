@@ -96,8 +96,16 @@ def analyze_image_characteristics(bundle: ImageInputBundle) -> Dict[str, Any]:
         water_px = np.mean(blue_dominance | dark_water)
         water_score = float(np.clip(water_px * 2.0, 0.0, 1.0))
 
+    is_vector_input = getattr(bundle, "is_vector", False) or getattr(bundle, "file_format", "").startswith("ESRI Shapefile")
+
     # 5. Scene Typology Classification
-    if is_panchromatic:
+    if is_vector_input:
+        v_dom = getattr(bundle, "vector_domain", "survey")
+        v_cnt = getattr(bundle, "vector_feature_count", 0)
+        typology = f"Official Vector Survey Cadastre ({v_cnt} {v_dom.title()} Features)"
+        typology_badge = "🗺️ Native Vector Shapefile"
+        typology_color = "#3B82F6"
+    elif is_panchromatic:
         typology = "Panchromatic Grayscale Satellite Imagery"
         typology_badge = "🗺️ Panchromatic (PAN)"
         typology_color = "#E2E8F0"
@@ -145,8 +153,17 @@ def analyze_image_characteristics(bundle: ImageInputBundle) -> Dict[str, Any]:
             }
             continue
 
+        # Criteria 0: Native Vector Shapefile / GeoJSON
+        if is_vector_input:
+            if mid == "vector_survey_engine":
+                score = 100.0
+                reasons.append("Native Vector GIS Engine: Extracts 100% exact survey centerlines and boundaries with zero AI error.")
+            else:
+                score = 25.0
+                reasons.append("Optical deep-learning model designed for raster satellite imagery, not vector survey layers.")
+
         # Criteria A: Panchromatic / Grayscale
-        if is_panchromatic:
+        elif is_panchromatic:
             if mid == "cartosat_pan_segformer":
                 score = 98.0
                 reasons.append("Trained natively on 1-band Cartosat-1 panchromatic imagery.")

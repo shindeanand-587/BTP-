@@ -135,10 +135,20 @@ def load_shapefile_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
     img = Image.new("RGB", (w_px, h_px), (15, 23, 42))
     draw = ImageDraw.Draw(img)
 
+    vector_mask_img = Image.new("L", (w_px, h_px), 2) # Base surface: Class 2 (Barren Land)
+    draw_mask = ImageDraw.Draw(vector_mask_img)
+
+    centerline_img = Image.new("1", (w_px, h_px), 0)
+    draw_skel = ImageDraw.Draw(centerline_img)
+
     fn_low = filename.lower()
     is_road = any(w in fn_low for w in ["road", "street", "highway", "avenue", "traffic", "lane", "network"])
     is_built = any(w in fn_low for w in ["built", "structure", "building", "parcel", "house", "footprint"])
     is_water = any(w in fn_low for w in ["water", "creek", "river", "bay", "ocean", "sea", "lake", "drain"])
+
+    import math
+    tot_len_m = 0.0
+    vector_polylines = []
 
     for s in shapes:
         pts = s.points
@@ -153,24 +163,55 @@ def load_shapefile_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
         
         if is_road:
             if is_poly:
+                draw_mask.polygon(pix_pts, fill=4)
                 draw.polygon(pix_pts, fill=(250, 204, 21), outline=(255, 255, 255))
             else:
+                draw_mask.line(pix_pts, fill=4, width=6)
+                draw_skel.line(pix_pts, fill=1, width=1)
+                draw.line(pix_pts, fill=(255, 255, 255), width=6)
                 draw.line(pix_pts, fill=(250, 204, 21), width=4)
+                vector_polylines.append(pix_pts)
+            for i in range(len(pts) - 1):
+                p1, p2 = pts[i], pts[i+1]
+                if dx > 1000:
+                    tot_len_m += math.hypot(p2[0] - p1[0], p2[1] - p1[1])
+                else:
+                    mid_lat = math.radians((p1[1] + p2[1]) / 2.0)
+                    deg_x = (p2[0] - p1[0]) * 111_000.0 * math.cos(mid_lat)
+                    deg_y = (p2[1] - p1[1]) * 111_000.0
+                    tot_len_m += math.hypot(deg_x, deg_y)
         elif is_built:
             if is_poly:
+                draw_mask.polygon(pix_pts, fill=3)
                 draw.polygon(pix_pts, fill=(225, 29, 72), outline=(255, 255, 255))
             else:
+                draw_mask.line(pix_pts, fill=3, width=5)
                 draw.line(pix_pts, fill=(225, 29, 72), width=3)
         elif is_water:
             if is_poly:
+                draw_mask.polygon(pix_pts, fill=0)
                 draw.polygon(pix_pts, fill=(8, 102, 255), outline=(147, 197, 253))
             else:
+                draw_mask.line(pix_pts, fill=0, width=5)
                 draw.line(pix_pts, fill=(8, 102, 255), width=5)
         else:
             if is_poly:
+                draw_mask.polygon(pix_pts, fill=4)
                 draw.polygon(pix_pts, fill=(6, 182, 212), outline=(255, 255, 255))
             else:
+                draw_mask.line(pix_pts, fill=4, width=5)
+                draw_skel.line(pix_pts, fill=1, width=1)
                 draw.line(pix_pts, fill=(250, 204, 21), width=3)
+                vector_polylines.append(pix_pts)
+            for i in range(len(pts) - 1):
+                p1, p2 = pts[i], pts[i+1]
+                if dx > 1000:
+                    tot_len_m += math.hypot(p2[0] - p1[0], p2[1] - p1[1])
+                else:
+                    mid_lat = math.radians((p1[1] + p2[1]) / 2.0)
+                    deg_x = (p2[0] - p1[0]) * 111_000.0 * math.cos(mid_lat)
+                    deg_y = (p2[1] - p1[1]) * 111_000.0
+                    tot_len_m += math.hypot(deg_x, deg_y)
 
     rgb_preview = np.array(img, dtype=np.uint8)
     raw_array = np.transpose(rgb_preview.astype(np.float32), (2, 0, 1))
@@ -196,8 +237,14 @@ def load_shapefile_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
         resolution=(float(res_x), float(res_y)),
         filename=filename
     )
+    bundle.is_vector = True
+    bundle.vector_mask = np.array(vector_mask_img, dtype=np.uint8)
+    bundle.vector_centerlines = np.array(centerline_img, dtype=bool)
+    bundle.vector_polylines = vector_polylines
+    bundle.total_vector_length_km = tot_len_m / 1000.0
     bundle.vector_feature_count = len(shapes)
     bundle.vector_shape_type = getattr(r, "shapeTypeName", "Vector")
+    bundle.vector_domain = "roads" if is_road else ("builtup" if is_built else ("water" if is_water else "mixed"))
     return bundle
 
 def load_geojson_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
@@ -234,6 +281,20 @@ def load_geojson_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
     img = Image.new("RGB", (w_px, h_px), (15, 23, 42))
     draw = ImageDraw.Draw(img)
 
+    vector_mask_img = Image.new("L", (w_px, h_px), 2)
+    draw_mask = ImageDraw.Draw(vector_mask_img)
+
+    centerline_img = Image.new("1", (w_px, h_px), 0)
+    draw_skel = ImageDraw.Draw(centerline_img)
+
+    import math
+    tot_len_m = 0.0
+    vector_polylines = []
+
+    fn_low = filename.lower()
+    is_road = any(w in fn_low for w in ["road", "street", "highway", "avenue", "traffic", "lane", "network"])
+    is_built = any(w in fn_low for w in ["built", "structure", "building", "parcel", "house", "footprint"])
+
     for f in features:
         geom = f.get('geometry', {})
         gtype = geom.get('type', '')
@@ -244,16 +305,36 @@ def load_geojson_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
                      int(round((ymax - y) / dy * (h_px - 1)))) for x, y in pts_list]
 
         if gtype == 'Polygon':
+            c_id = 3 if is_built else (4 if is_road else 3)
             for ring in coords:
-                draw.polygon(to_pixels(ring), fill=(250, 204, 21), outline=(255, 255, 255))
+                pix_ring = to_pixels(ring)
+                draw_mask.polygon(pix_ring, fill=c_id)
+                draw.polygon(pix_ring, fill=(250, 204, 21) if is_road else (225, 29, 72), outline=(255, 255, 255))
         elif gtype == 'MultiPolygon':
+            c_id = 3 if is_built else (4 if is_road else 3)
             for poly in coords:
                 for ring in poly:
-                    draw.polygon(to_pixels(ring), fill=(250, 204, 21), outline=(255, 255, 255))
+                    pix_ring = to_pixels(ring)
+                    draw_mask.polygon(pix_ring, fill=c_id)
+                    draw.polygon(pix_ring, fill=(250, 204, 21) if is_road else (225, 29, 72), outline=(255, 255, 255))
         elif gtype in ('LineString', 'MultiLineString'):
             lines = coords if gtype == 'MultiLineString' else [coords]
             for line in lines:
-                draw.line(to_pixels(line), fill=(250, 204, 21), width=4)
+                pix_line = to_pixels(line)
+                draw_mask.line(pix_line, fill=4, width=6)
+                draw_skel.line(pix_line, fill=1, width=1)
+                draw.line(pix_line, fill=(255, 255, 255), width=6)
+                draw.line(pix_line, fill=(250, 204, 21), width=4)
+                vector_polylines.append(pix_line)
+                for i in range(len(line) - 1):
+                    p1, p2 = line[i], line[i+1]
+                    if dx > 1000:
+                        tot_len_m += math.hypot(p2[0] - p1[0], p2[1] - p1[1])
+                    else:
+                        mid_lat = math.radians((p1[1] + p2[1]) / 2.0)
+                        deg_x = (p2[0] - p1[0]) * 111_000.0 * math.cos(mid_lat)
+                        deg_y = (p2[1] - p1[1]) * 111_000.0
+                        tot_len_m += math.hypot(deg_x, deg_y)
         elif gtype == 'Point':
             pt = to_pixels([coords])[0]
             draw.ellipse([(pt[0]-4, pt[1]-4), (pt[0]+4, pt[1]+4)], fill=(37, 99, 235), outline=(255, 255, 255))
@@ -277,7 +358,13 @@ def load_geojson_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
         resolution=(float(res_linear), float(res_linear)),
         filename=filename
     )
+    bundle.is_vector = True
+    bundle.vector_mask = np.array(vector_mask_img, dtype=np.uint8)
+    bundle.vector_centerlines = np.array(centerline_img, dtype=bool)
+    bundle.vector_polylines = vector_polylines
+    bundle.total_vector_length_km = tot_len_m / 1000.0
     bundle.vector_feature_count = len(features)
+    bundle.vector_domain = "builtup" if is_built else "roads"
     return bundle
 
 def load_image_from_bytes(file_bytes: bytes, filename: str) -> ImageInputBundle:

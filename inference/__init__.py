@@ -34,6 +34,9 @@ def get_adapter(model_id: str) -> BaseModelAdapter:
     elif model_id == "wv3_native_unet":
         from inference.worldview3 import WorldView3UNetAdapter
         adapter = WorldView3UNetAdapter(model_info)
+    elif model_id == "vector_survey_engine":
+        from inference.vector_adapter import VectorSurveyAdapter
+        adapter = VectorSurveyAdapter(model_info)
     elif model_id == "sentinel2_ms_segformer":
         from inference.sentinel2 import Sentinel2SegFormerAdapter
         adapter = Sentinel2SegFormerAdapter(model_info)

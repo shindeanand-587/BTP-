@@ -294,19 +294,21 @@ def directional_road_gap_closing(mask: np.ndarray, radius: int = 14) -> np.ndarr
 def extract_actionable_road_corridors(
     road_mask: np.ndarray,
     gsd_m: Any = 1.24,
-    bridge_shadow_gaps: bool = True
+    bridge_shadow_gaps: bool = True,
+    centerline_override: Optional[np.ndarray] = None,
+    total_length_km_override: Optional[float] = None
 ) -> Dict[str, Any]:
     """
     Transforms raw, broken road segmentation masks into continuous, survey-ready corridors:
     - Directional collinear linear closing bridges shadow breaks and runway gaps up to 13 pixels.
     - Classifies corridors into Major Arterials / Runways (unbroken corridors) vs Minor Streets / Alleys.
-    - Extracts smooth medial axis centerlines via Zhang-Suen thinning.
+    - Extracts smooth medial axis centerlines via Zhang-Suen thinning (or direct vector geometry).
     """
     gsd_linear, pixel_area_m2 = normalize_gsd(gsd_m)
     h, w = road_mask.shape[:2]
     total_area_km2 = (h * w * pixel_area_m2) / 1_000_000.0
 
-    if road_mask.sum() < 10:
+    if road_mask.sum() < 5 and (centerline_override is None or not centerline_override.any()):
         return {
             "has_roads": False,
             "arterial_mask": np.zeros((h, w), dtype=bool),
@@ -366,23 +368,42 @@ def extract_actionable_road_corridors(
         arterial_mask = working_mask.copy()
         minor_mask = np.zeros_like(working_mask, dtype=bool)
 
-    # 3. True Medial Axis Centerline Extraction via Zhang-Suen Thinning
-    skel_arterial = zhang_suen_thinning(arterial_mask)
-    skel_minor = zhang_suen_thinning(minor_mask) if minor_mask.any() else np.zeros((h, w), dtype=bool)
-    full_centerline = skel_arterial | skel_minor
+    # 3. Medial Axis Centerline Extraction (or direct vector geometry override)
+    if centerline_override is not None and centerline_override.any():
+        skel_arterial = centerline_override.copy()
+        skel_minor = np.zeros((h, w), dtype=bool)
+        full_centerline = skel_arterial.copy()
+        if total_length_km_override is not None and total_length_km_override > 0:
+            art_len_km = total_length_km_override
+            min_len_km = 0.0
+            total_len_km = total_length_km_override
+        else:
+            art_len_km = (int(skel_arterial.sum()) * gsd_linear * 1.05) / 1000.0
+            min_len_km = 0.0
+            total_len_km = art_len_km
+        density = (total_len_km / total_area_km2) if total_area_km2 > 0 else 0.0
+        continuity = 100.0
+    else:
+        skel_arterial = zhang_suen_thinning(arterial_mask)
+        skel_minor = zhang_suen_thinning(minor_mask) if minor_mask.any() else np.zeros((h, w), dtype=bool)
+        full_centerline = skel_arterial | skel_minor
 
-    if full_centerline.sum() == 0:
-        full_centerline = working_mask
+        if full_centerline.sum() == 0:
+            full_centerline = working_mask
 
-    # 4. Metric Calculations
-    art_len_km = (int(skel_arterial.sum()) * gsd_linear * 1.12) / 1000.0
-    min_len_km = (int(skel_minor.sum()) * gsd_linear * 1.12) / 1000.0
-    total_len_km = art_len_km + min_len_km
-    density = (total_len_km / total_area_km2) if total_area_km2 > 0 else 0.0
+        # Fallback if arterial skeleton is empty but full has roads
+        if skel_arterial.sum() == 0 and full_centerline.any():
+            skel_arterial = full_centerline.copy()
 
-    # Continuity score
-    boundary = working_mask & (~full_centerline)
-    continuity = min(98.5, max(50.0, (1.0 - (float(boundary.sum()) / max(1.0, float(working_mask.sum()) * 1.4))) * 100.0 + 45.0))
+        # 4. Metric Calculations
+        art_len_km = (int(skel_arterial.sum()) * gsd_linear * 1.12) / 1000.0
+        min_len_km = (int(skel_minor.sum()) * gsd_linear * 1.12) / 1000.0
+        total_len_km = art_len_km + min_len_km
+        density = (total_len_km / total_area_km2) if total_area_km2 > 0 else 0.0
+
+        # Continuity score
+        boundary = working_mask & (~full_centerline)
+        continuity = min(98.5, max(50.0, (1.0 - (float(boundary.sum()) / max(1.0, float(working_mask.sum()) * 1.4))) * 100.0 + 45.0))
 
     # 5. Clean Pinpoint Junction Nodes via Rutovitz Crossing Number & Spur Pruning
     junctions = extract_junction_nodes(full_centerline, min_dist=20)

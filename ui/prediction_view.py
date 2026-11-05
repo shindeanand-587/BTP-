@@ -368,7 +368,15 @@ def render_prediction_page():
             # Compute Actionable Survey-Grade Layers
             gsd_val = bundle.resolution if bundle.resolution else 1.24
 
-            road_corridors = extract_actionable_road_corridors(pred_mask == 4, gsd_m=gsd_val, bridge_shadow_gaps=True)
+            v_skel = getattr(bundle, "vector_centerlines", None)
+            v_tot_km = getattr(bundle, "total_vector_length_km", None)
+            road_corridors = extract_actionable_road_corridors(
+                pred_mask == 4,
+                gsd_m=gsd_val,
+                bridge_shadow_gaps=True,
+                centerline_override=v_skel,
+                total_length_km_override=v_tot_km
+            )
             building_footprints = extract_actionable_building_footprints(pred_mask == 3, gsd_m=gsd_val)
             water_shoreline = extract_actionable_water_shoreline(pred_mask == 0, pred_mask == 3, gsd_m=gsd_val)
             veg_canopy = extract_actionable_vegetation_canopy(pred_mask == 1, pred_mask == 4, gsd_m=gsd_val)
@@ -453,7 +461,15 @@ def render_prediction_page():
             gsd_val = 1.24
         road_corridors = res.get("road_corridors", {})
         if "arterial_junction_mask" not in road_corridors:
-            road_corridors = extract_actionable_road_corridors(res["pred_mask"] == 4, gsd_m=gsd_val, bridge_shadow_gaps=True)
+            v_skel = getattr(b_res, "vector_centerlines", None)
+            v_tot_km = getattr(b_res, "total_vector_length_km", None)
+            road_corridors = extract_actionable_road_corridors(
+                res["pred_mask"] == 4,
+                gsd_m=gsd_val,
+                bridge_shadow_gaps=True,
+                centerline_override=v_skel,
+                total_length_km_override=v_tot_km
+            )
             res["road_corridors"] = road_corridors
 
         building_footprints = res.get("building_footprints", {})
@@ -576,12 +592,16 @@ def render_prediction_page():
                 gsd_val = getattr(bundle, "resolution", 1.24) or 1.24
                 if not isinstance(gsd_val, (int, float, tuple)):
                     gsd_val = 1.24
+                v_skel = getattr(bundle, "vector_centerlines", None)
+                v_tot_km = getattr(bundle, "total_vector_length_km", None)
                 road_prob = prob_map[4]
                 dynamic_road_mask = (road_prob >= road_prob_thresh)
                 active_road_corridors = extract_actionable_road_corridors(
                     dynamic_road_mask,
                     gsd_m=gsd_val,
-                    bridge_shadow_gaps=True
+                    bridge_shadow_gaps=True,
+                    centerline_override=v_skel,
+                    total_length_km_override=v_tot_km
                 )
                 res["road_corridors"] = active_road_corridors
 
@@ -592,6 +612,10 @@ def render_prediction_page():
                 else:
                     active_road_mask = active_road_corridors.get("working_mask", dynamic_road_mask)
                     active_centerline = active_road_corridors.get("centerline_mask", np.zeros_like(active_road_mask))
+
+                # Ensure active_centerline never drops to zero if complete network has lines
+                if not active_centerline.any() and active_road_corridors.get("centerline_mask") is not None:
+                    active_centerline = active_road_corridors["centerline_mask"]
 
                 smooth_road_mask = prepare_smooth_display_image((active_road_mask * 255).astype(np.uint8)) > 128
 
@@ -605,14 +629,35 @@ def render_prediction_page():
                     draw_contour=True
                 )
 
-                # Draw smooth centerline overlay with white casing halo for ultra-crisp visibility
-                if show_centerlines and active_centerline.any():
-                    skel_smooth = prepare_smooth_display_image((active_centerline * 255).astype(np.uint8)) > 128
-                    pil_skel = Image.fromarray((skel_smooth * 255).astype(np.uint8))
-                    thick = np.array(pil_skel.filter(ImageFilter.MaxFilter(3)), dtype=bool)
-                    halo = np.array(pil_skel.filter(ImageFilter.MaxFilter(5)), dtype=bool) & (~thick)
-                    road_spotlight[halo] = [255, 255, 255] # Clean white casing
-                    road_spotlight[thick] = [220, 38, 38] # Vivid crimson medial axis
+                # Draw high-visibility vector centerlines with crisp white casing and vivid crimson medial axis
+                if show_centerlines:
+                    h_disp, w_disp = road_spotlight.shape[:2]
+                    v_polys = getattr(bundle, "vector_polylines", None)
+                    if v_polys:
+                        pil_spot = Image.fromarray(road_spotlight)
+                        draw_vec = ImageDraw.Draw(pil_spot)
+                        h_b, w_b = bundle.height, bundle.width
+                        for l_pts in v_polys:
+                            if len(l_pts) < 2:
+                                continue
+                            disp_pts = [
+                                (int(round(x * (w_disp - 1) / max(1, w_b - 1))),
+                                 int(round(y * (h_disp - 1) / max(1, h_b - 1))))
+                                for x, y in l_pts
+                            ]
+                            # Outer white casing (6px) + Vivid crimson medial axis (3px)
+                            draw_vec.line(disp_pts, fill=(255, 255, 255), width=6)
+                            draw_vec.line(disp_pts, fill=(220, 38, 38), width=3)
+                        road_spotlight = np.array(pil_spot)
+                    elif active_centerline.any():
+                        # Nearest-neighbor resize to display canvas so 1px centerlines are never blurred or lost!
+                        pil_skel = Image.fromarray((active_centerline * 255).astype(np.uint8)).resize(
+                            (w_disp, h_disp), resample=Image.Resampling.NEAREST
+                        )
+                        thick = np.array(pil_skel.filter(ImageFilter.MaxFilter(3)), dtype=bool)
+                        halo = np.array(pil_skel.filter(ImageFilter.MaxFilter(5)), dtype=bool) & (~thick)
+                        road_spotlight[halo] = [255, 255, 255] # Clean white casing halo
+                        road_spotlight[thick] = [220, 38, 38] # Vivid crimson medial axis
 
                 # Draw pinpoint junction nodes cleanly without obscuring roads
                 if show_junctions:
@@ -630,8 +675,8 @@ def render_prediction_page():
                         for jy, jx in zip(jy_arr, jx_arr):
                             dy = int(round(jy * h_disp / h_orig))
                             dx = int(round(jx * w_disp / w_orig))
-                            # Crisp circular pinpoint: 4px white outer ring, 3px royal blue core
-                            draw_junc.ellipse([(dx - 4, dy - 4), (dx + 4, dy + 4)], fill=(255, 255, 255), outline=(255, 255, 255))
+                            # Crisp circular pinpoint: 5px white outer ring, 3px royal blue core
+                            draw_junc.ellipse([(dx - 5, dy - 5), (dx + 5, dy + 5)], fill=(255, 255, 255), outline=(255, 255, 255))
                             draw_junc.ellipse([(dx - 3, dy - 3), (dx + 3, dy + 3)], fill=(37, 99, 235), outline=(37, 99, 235))
                         road_spotlight = np.array(pil_spot)
 
