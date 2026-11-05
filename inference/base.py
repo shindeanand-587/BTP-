@@ -15,13 +15,15 @@ from typing import Dict, Any, Tuple, Optional, List
 from inference.geospatial_io import ImageInputBundle
 
 def resolve_checkpoint_file(checkpoint_path: Optional[str]) -> Optional[str]:
-    """Resolves local absolute, relative, or cloud ./checkpoints/ paths."""
+    """Resolves local absolute, relative, or cloud ./checkpoints/ paths across Windows and Linux."""
     if not checkpoint_path:
         return None
     if os.path.exists(checkpoint_path):
         return checkpoint_path
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    fname = os.path.basename(checkpoint_path)
+    # Extract filename handling Windows backslashes even when running on Linux
+    clean = str(checkpoint_path).replace("\\", "/")
+    fname = clean.split("/")[-1]
     cand1 = os.path.join(base_dir, "checkpoints", fname)
     if os.path.exists(cand1):
         return cand1

@@ -31,13 +31,14 @@ CLASS_MAPPING = {
 }
 
 def resolve_checkpoint_path(path: Optional[str]) -> str:
-    """Resolves local absolute path or relative ./checkpoints path for cloud deployment."""
+    """Resolves local absolute path or relative ./checkpoints path for cloud deployment across OS."""
     if not path:
         return ""
     if os.path.exists(path):
         return path
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    fname = os.path.basename(path)
+    clean = str(path).replace("\\", "/")
+    fname = clean.split("/")[-1]
     cand1 = os.path.join(base_dir, "checkpoints", fname)
     if os.path.exists(cand1):
         return cand1
