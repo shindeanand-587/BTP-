@@ -94,9 +94,9 @@ def render_upload():
             st.error(f"Sample file not found: {preset_info['file']}")
     else:
         uploaded_file = st.file_uploader(
-            "Choose a satellite image file (Max 250 MB)",
-            type=["tif", "tiff", "png", "jpg", "jpeg"],
-            help="Supported formats: Multiband GeoTIFF (8-band WV3, 4-band S2, 1-band Cartosat) or standard RGB/RGBA/Grayscale PNG/JPEG."
+            "Choose a satellite image or shapefile (Max 250 MB)",
+            type=["tif", "tiff", "png", "jpg", "jpeg", "webp", "bmp", "zip", "shp", "dbf", "geojson", "json"],
+            help="Supported formats: Multiband GeoTIFF, standard aerial imagery, ESRI Shapefiles (.shp, or .zip), and GeoJSON."
         )
         if uploaded_file is not None:
             file_bytes = uploaded_file.read()

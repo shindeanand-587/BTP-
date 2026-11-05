@@ -164,9 +164,9 @@ def render_prediction_page():
     with col_upload:
         st.markdown('<div style="font-size: 1.05rem; font-weight: 700; color: #0F172A; margin-bottom: 8px;">📁 Upload File from Computer:</div>', unsafe_allow_html=True)
         uploaded_file = st.file_uploader(
-            "Upload Satellite Scene (GeoTIFF, PNG, JPG, JPEG, WebP, BMP, or ZIP):",
-            type=["tif", "tiff", "png", "jpg", "jpeg", "webp", "bmp", "zip"],
-            help="Supports full-resolution 8-band WorldView-3 scenes (>650MB), 1-band Cartosat-1 PAN, standard RGB aerial photos, or zipped archives.",
+            "Upload Satellite Scene or Vector Shapefile (GeoTIFF, PNG, JPG, ZIP, SHP, GeoJSON):",
+            type=["tif", "tiff", "png", "jpg", "jpeg", "webp", "bmp", "zip", "shp", "dbf", "geojson", "json"],
+            help="Supports high-resolution GeoTIFFs, standard aerial imagery, ESRI Shapefiles (.shp, or .zip with .shp/.shx/.dbf), and GeoJSON vectors.",
             label_visibility="collapsed"
         )
 

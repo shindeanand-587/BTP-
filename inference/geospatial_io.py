@@ -8,12 +8,18 @@ Creates calibrated RGB previews for interactive display.
 
 import os
 import io
+import json
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 Image.MAX_IMAGE_PIXELS = None
 from typing import Dict, Any, Tuple, Optional
 import rasterio
 from rasterio.transform import Affine
+
+try:
+    import shapefile
+except ImportError:
+    shapefile = None
 
 from model_registry import CLASS_MAPPING
 
@@ -75,19 +81,225 @@ def stretch_8bit(band: np.ndarray, p_min: float = 2.0, p_max: float = 98.0) -> n
     stretched = np.clip((band - vmin) / (vmax - vmin) * 255.0, 0, 255)
     return stretched.astype(np.uint8)
 
+def load_shapefile_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
+    """
+    Ingests ESRI Shapefiles (.shp, .zip containing shapefile, or .geojson),
+    rendering vector geometry (roads, building parcels, water bodies) into a georeferenced canvas.
+    """
+    if shapefile is None:
+        raise ImportError("The 'pyshp' package is required to read Shapefiles. Please run: pip install pyshp")
+
+    import zipfile
+    ext = os.path.splitext(filename)[1].lower()
+
+    reader_kwargs = {}
+    crs_str = "WGS 84 / Projected Vector CRS"
+
+    if ext == ".zip":
+        with zipfile.ZipFile(io.BytesIO(file_bytes), 'r') as z:
+            shp_names = [n for n in z.namelist() if n.lower().endswith('.shp')]
+            if not shp_names:
+                raise ValueError("Zip archive does not contain any .shp file.")
+            target_shp = shp_names[0]
+            base_name = os.path.splitext(target_shp)[0]
+            reader_kwargs['shp'] = io.BytesIO(z.read(target_shp))
+            
+            for item in z.namelist():
+                ilow = item.lower()
+                if ilow.endswith('.shx') and (base_name.lower() in ilow or len(shp_names) == 1):
+                    reader_kwargs['shx'] = io.BytesIO(z.read(item))
+                elif ilow.endswith('.dbf') and (base_name.lower() in ilow or len(shp_names) == 1):
+                    reader_kwargs['dbf'] = io.BytesIO(z.read(item))
+                elif ilow.endswith('.prj') and (base_name.lower() in ilow or len(shp_names) == 1):
+                    try:
+                        crs_str = z.read(item).decode('utf-8', errors='ignore').strip()
+                    except Exception:
+                        pass
+    elif ext in [".geojson", ".json"]:
+        return load_geojson_bundle(file_bytes, filename)
+    else:
+        reader_kwargs['shp'] = io.BytesIO(file_bytes)
+
+    r = shapefile.Reader(**reader_kwargs)
+    shapes = r.shapes()
+    if not shapes:
+        raise ValueError(f"Shapefile '{filename}' contains 0 geometric features.")
+
+    xmin, ymin, xmax, ymax = r.bbox
+    dx = max(1e-6, xmax - xmin)
+    dy = max(1e-6, ymax - ymin)
+
+    w_px = 1024
+    h_px = int(np.clip(round(w_px * (dy / dx)), 256, 1536))
+
+    img = Image.new("RGB", (w_px, h_px), (15, 23, 42))
+    draw = ImageDraw.Draw(img)
+
+    fn_low = filename.lower()
+    is_road = any(w in fn_low for w in ["road", "street", "highway", "avenue", "traffic", "lane", "network"])
+    is_built = any(w in fn_low for w in ["built", "structure", "building", "parcel", "house", "footprint"])
+    is_water = any(w in fn_low for w in ["water", "creek", "river", "bay", "ocean", "sea", "lake", "drain"])
+
+    for s in shapes:
+        pts = s.points
+        if not pts:
+            continue
+        pix_pts = [
+            (int(round((x - xmin) / dx * (w_px - 1))),
+             int(round((ymax - y) / dy * (h_px - 1))))
+            for x, y in pts
+        ]
+        is_poly = s.shapeType in (shapefile.POLYGON, shapefile.POLYGONZ, shapefile.POLYGONM)
+        
+        if is_road:
+            if is_poly:
+                draw.polygon(pix_pts, fill=(250, 204, 21), outline=(255, 255, 255))
+            else:
+                draw.line(pix_pts, fill=(250, 204, 21), width=4)
+        elif is_built:
+            if is_poly:
+                draw.polygon(pix_pts, fill=(225, 29, 72), outline=(255, 255, 255))
+            else:
+                draw.line(pix_pts, fill=(225, 29, 72), width=3)
+        elif is_water:
+            if is_poly:
+                draw.polygon(pix_pts, fill=(8, 102, 255), outline=(147, 197, 253))
+            else:
+                draw.line(pix_pts, fill=(8, 102, 255), width=5)
+        else:
+            if is_poly:
+                draw.polygon(pix_pts, fill=(6, 182, 212), outline=(255, 255, 255))
+            else:
+                draw.line(pix_pts, fill=(250, 204, 21), width=3)
+
+    rgb_preview = np.array(img, dtype=np.uint8)
+    raw_array = np.transpose(rgb_preview.astype(np.float32), (2, 0, 1))
+
+    if dx > 1000:
+        res_x = dx / w_px
+        res_y = dy / h_px
+    else:
+        res_x = (dx * 111_000.0) / w_px
+        res_y = (dy * 111_000.0) / h_px
+
+    bundle = ImageInputBundle(
+        raw_array=raw_array,
+        rgb_preview=rgb_preview,
+        channels=3,
+        height=h_px,
+        width=w_px,
+        dtype="uint8",
+        file_format="ESRI Shapefile Vector (.shp)",
+        is_georeferenced=True,
+        crs=crs_str[:120] if crs_str else "Project Vector CRS",
+        bounds=(xmin, ymin, xmax, ymax),
+        resolution=(float(res_x), float(res_y)),
+        filename=filename
+    )
+    bundle.vector_feature_count = len(shapes)
+    bundle.vector_shape_type = getattr(r, "shapeTypeName", "Vector")
+    return bundle
+
+def load_geojson_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
+    """Ingests GeoJSON vector files and renders them onto a georeferenced canvas."""
+    data = json.loads(file_bytes.decode('utf-8'))
+    features = data.get('features', [data] if 'geometry' in data else [])
+    if not features:
+        raise ValueError("GeoJSON contains 0 features.")
+
+    all_coords = []
+    for f in features:
+        geom = f.get('geometry', {})
+        coords = geom.get('coordinates', [])
+        def flatten(c):
+            if isinstance(c, (list, tuple)) and len(c) >= 2 and isinstance(c[0], (int, float)):
+                all_coords.append((float(c[0]), float(c[1])))
+            elif isinstance(c, (list, tuple)):
+                for sub in c: flatten(sub)
+        flatten(coords)
+
+    if not all_coords:
+        raise ValueError("GeoJSON contains no valid coordinates.")
+
+    xs = [pt[0] for pt in all_coords]
+    ys = [pt[1] for pt in all_coords]
+    xmin, xmax = min(xs), max(xs)
+    ymin, ymax = min(ys), max(ys)
+    dx = max(1e-6, xmax - xmin)
+    dy = max(1e-6, ymax - ymin)
+
+    w_px = 1024
+    h_px = int(np.clip(round(w_px * (dy / dx)), 256, 1536))
+
+    img = Image.new("RGB", (w_px, h_px), (15, 23, 42))
+    draw = ImageDraw.Draw(img)
+
+    for f in features:
+        geom = f.get('geometry', {})
+        gtype = geom.get('type', '')
+        coords = geom.get('coordinates', [])
+        
+        def to_pixels(pts_list):
+            return [(int(round((x - xmin) / dx * (w_px - 1))),
+                     int(round((ymax - y) / dy * (h_px - 1)))) for x, y in pts_list]
+
+        if gtype == 'Polygon':
+            for ring in coords:
+                draw.polygon(to_pixels(ring), fill=(250, 204, 21), outline=(255, 255, 255))
+        elif gtype == 'MultiPolygon':
+            for poly in coords:
+                for ring in poly:
+                    draw.polygon(to_pixels(ring), fill=(250, 204, 21), outline=(255, 255, 255))
+        elif gtype in ('LineString', 'MultiLineString'):
+            lines = coords if gtype == 'MultiLineString' else [coords]
+            for line in lines:
+                draw.line(to_pixels(line), fill=(250, 204, 21), width=4)
+        elif gtype == 'Point':
+            pt = to_pixels([coords])[0]
+            draw.ellipse([(pt[0]-4, pt[1]-4), (pt[0]+4, pt[1]+4)], fill=(37, 99, 235), outline=(255, 255, 255))
+
+    rgb_preview = np.array(img, dtype=np.uint8)
+    raw_array = np.transpose(rgb_preview.astype(np.float32), (2, 0, 1))
+
+    res_linear = (dx * 111_000.0) / w_px if dx < 1000 else (dx / w_px)
+
+    bundle = ImageInputBundle(
+        raw_array=raw_array,
+        rgb_preview=rgb_preview,
+        channels=3,
+        height=h_px,
+        width=w_px,
+        dtype="uint8",
+        file_format="GeoJSON Vector (.geojson)",
+        is_georeferenced=True,
+        crs="EPSG:4326 (WGS 84)",
+        bounds=(xmin, ymin, xmax, ymax),
+        resolution=(float(res_linear), float(res_linear)),
+        filename=filename
+    )
+    bundle.vector_feature_count = len(features)
+    return bundle
+
 def load_image_from_bytes(file_bytes: bytes, filename: str) -> ImageInputBundle:
     """
-    Ingest image from raw bytes (uploaded file).
-    Supports GeoTIFF/TIFF, PNG, JPEG, WebP, BMP, JP2, and ZIP archives containing imagery.
+    Ingest image or vector shapefile from raw bytes (uploaded file).
+    Supports GeoTIFF/TIFF, PNG, JPEG, WebP, BMP, ESRI Shapefiles (.shp, .zip), and GeoJSON.
     """
     import zipfile
     ext = os.path.splitext(filename)[1].lower()
 
-    # 1. Handle ZIP archive uploads
+    # 1. Handle Shapefile and GeoJSON uploads directly
+    if ext in [".shp", ".dbf", ".geojson", ".json"]:
+        return load_shapefile_bundle(file_bytes, filename)
+
+    # 2. Handle ZIP archive uploads (supports both zipped shapefiles and zipped imagery)
     if ext == ".zip":
         with zipfile.ZipFile(io.BytesIO(file_bytes), 'r') as z:
             names = z.namelist()
-            # Prioritize TIFF inside zip, then PNG, JPG
+            # If zip contains a shapefile, load it as vector bundle
+            if any(n.lower().endswith('.shp') for n in names):
+                return load_shapefile_bundle(file_bytes, filename)
+            # Otherwise search for imagery
             candidate = None
             for n in names:
                 if n.lower().endswith(('.tif', '.tiff', '.png', '.jpg', '.jpeg', '.webp', '.bmp')):
@@ -97,7 +309,7 @@ def load_image_from_bytes(file_bytes: bytes, filename: str) -> ImageInputBundle:
                 inner_bytes = z.read(candidate)
                 return load_image_from_bytes(inner_bytes, candidate)
             else:
-                raise ValueError(f"Zip archive '{filename}' does not contain a supported image file (.tif, .png, .jpg).")
+                raise ValueError(f"Zip archive '{filename}' does not contain a supported image or shapefile.")
 
     is_tiff = ext in [".tif", ".tiff"]
 
