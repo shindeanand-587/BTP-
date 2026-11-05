@@ -1,0 +1,431 @@
+/* ==========================================================================
+   Urban Feature Extraction Platform — Modern Light Theme Stylesheet
+   High-Legibility Scale, Generous Box Spacing & Publication-Grade Layout
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
+
+/* Global Reset & Base Typography — Substantially Enlarged for Supreme Readability */
+html, body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    color: #0F172A !important;
+    font-size: 17px !important;
+    line-height: 1.6 !important;
+}
+
+p, div, span, label, input, select, button {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* 
+   IMPORTANT: Explicitly protect and restore Material Symbols / Icons for Streamlit.
+   Prevents icon ligatures (e.g. 'upload', 'close', 'arrow_down') from rendering as literal text!
+*/
+[data-testid="stIconMaterial"],
+.material-symbols-rounded,
+.material-symbols-outlined,
+.material-icons,
+span[translate="no"] {
+    font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important;
+    font-weight: normal !important;
+    font-style: normal !important;
+    font-size: 20px !important;
+    line-height: 1 !important;
+    letter-spacing: normal !important;
+    text-transform: none !important;
+    display: inline-block !important;
+    white-space: nowrap !important;
+    word-wrap: normal !important;
+    direction: ltr !important;
+    -webkit-font-feature-settings: 'liga' !important;
+    -webkit-font-smoothing: antialiased !important;
+    vertical-align: middle !important;
+}
+
+/* Background Canvas */
+.stApp {
+    background-color: #F8FAFC !important;
+    background-image: 
+        radial-gradient(at 0% 0%, rgba(224, 231, 255, 0.5) 0px, transparent 55%),
+        radial-gradient(at 100% 100%, rgba(241, 245, 249, 0.85) 0px, transparent 55%) !important;
+}
+
+/* Center and Proportion the App Container (Prevents extreme stretching on ultrawide monitors) */
+.block-container {
+    max-width: 1440px !important;
+    padding-top: 1.75rem !important;
+    padding-bottom: 4.5rem !important;
+    padding-left: 2.0rem !important;
+    padding-right: 2.0rem !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+/* Header & Banner */
+.platform-hero {
+    background: #FFFFFF;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 16px;
+    padding: 28px 36px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.05), 0 2px 4px -1px rgba(15, 23, 42, 0.02);
+    position: relative;
+    overflow: hidden;
+}
+
+.platform-hero::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    background: linear-gradient(90deg, #2563EB 0%, #38BDF8 50%, #10B981 100%);
+}
+
+.platform-title {
+    font-size: 2.3rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.03em !important;
+    color: #0F172A !important;
+    margin: 0 0 6px 0 !important;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.platform-subtitle {
+    font-size: 1.2rem !important;
+    color: #475569 !important;
+    margin: 0 !important;
+    font-weight: 500 !important;
+    line-height: 1.45 !important;
+}
+
+/* Section Headings */
+.section-header {
+    font-size: 1.45rem !important;
+    font-weight: 800 !important;
+    color: #0F172A !important;
+    margin-top: 24px !important;
+    margin-bottom: 16px !important;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: -0.015em !important;
+}
+
+/* KPI Card Grid */
+.kpi-card {
+    background: #FFFFFF;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 14px;
+    padding: 20px 22px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.kpi-card:hover {
+    transform: translateY(-2px);
+    border-color: #CBD5E1;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.kpi-val {
+    font-size: 2.3rem !important;
+    font-weight: 800 !important;
+    line-height: 1.15 !important;
+    margin-bottom: 6px !important;
+    font-family: 'JetBrains Mono', monospace !important;
+}
+
+.kpi-label {
+    font-size: 0.95rem !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    color: #475569 !important;
+}
+
+.kpi-sub {
+    font-size: 0.90rem !important;
+    color: #64748B !important;
+    margin-top: 4px !important;
+    font-weight: 500 !important;
+}
+
+/* Light Card Panels */
+.light-panel {
+    background: #FFFFFF;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 14px;
+    padding: 24px 28px;
+    margin-bottom: 22px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+}
+
+/* Badges */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 16px;
+    border-radius: 9999px;
+    font-size: 0.92rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.02em !important;
+    line-height: 1.25 !important;
+}
+
+.badge-ready {
+    background: #ECFDF5;
+    color: #065F46;
+    border: 1.5px solid #A7F3D0;
+}
+
+.badge-pending {
+    background: #FFFBEB;
+    color: #92400E;
+    border: 1.5px solid #FDE68A;
+}
+
+.badge-sensor {
+    background: #EFF6FF;
+    color: #1E40AF;
+    border: 1.5px solid #BFDBFE;
+}
+
+.badge-neutral {
+    background: #F1F5F9;
+    color: #334155;
+    border: 1.5px solid #CBD5E1;
+}
+
+/* Legend Swatches */
+.legend-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    background: #FFFFFF;
+    border: 1.5px solid #E2E8F0;
+    font-size: 1.0rem !important;
+    font-weight: 700 !important;
+    color: #0F172A;
+    margin-right: 8px;
+    margin-bottom: 8px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.color-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+/* Streamlit Tabs Customization — Large & Readable */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 12px !important;
+    border-bottom: 2.5px solid #E2E8F0 !important;
+    padding-bottom: 6px !important;
+    margin-bottom: 18px !important;
+}
+
+.stTabs [data-baseweb="tab"] {
+    font-size: 1.20rem !important;
+    font-weight: 700 !important;
+    color: #64748B !important;
+    padding: 12px 24px !important;
+    border-radius: 10px 10px 0 0 !important;
+    background: transparent !important;
+    border: none !important;
+    transition: all 0.15s ease !important;
+}
+
+.stTabs [data-baseweb="tab"]:hover {
+    color: #2563EB !important;
+    background: #EFF6FF !important;
+}
+
+.stTabs [aria-selected="true"] {
+    color: #2563EB !important;
+    border-bottom: 3.5px solid #2563EB !important;
+    background: transparent !important;
+}
+
+/* Streamlit Buttons — Chunky & High-Visibility */
+.stButton > button {
+    border-radius: 10px !important;
+    font-weight: 700 !important;
+    font-size: 1.05rem !important;
+    padding: 12px 22px !important;
+    min-height: 48px !important;
+    transition: all 0.15s ease !important;
+    border: 1.5px solid #CBD5E1 !important;
+    background-color: #FFFFFF !important;
+    color: #0F172A !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+
+.stButton > button:hover {
+    border-color: #2563EB !important;
+    color: #2563EB !important;
+    background-color: #EFF6FF !important;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15) !important;
+}
+
+.stButton > button[kind="primary"] {
+    background-color: #2563EB !important;
+    color: #FFFFFF !important;
+    border: 1.5px solid #1D4ED8 !important;
+    box-shadow: 0 3px 8px rgba(37, 99, 235, 0.28) !important;
+    font-size: 1.15rem !important;
+    min-height: 52px !important;
+}
+
+.stButton > button[kind="primary"]:hover {
+    background-color: #1D4ED8 !important;
+    box-shadow: 0 5px 16px rgba(37, 99, 235, 0.38) !important;
+}
+
+/* Streamlit File Uploader Box Styling */
+div[data-testid="stFileUploader"] {
+    border-radius: 14px !important;
+}
+
+div[data-testid="stFileUploader"] section[data-testid="stFileUploadDropzone"] {
+    padding: 24px 22px !important;
+    min-height: 125px !important;
+    border: 2px dashed #94A3B8 !important;
+    border-radius: 12px !important;
+    background: #FFFFFF !important;
+}
+
+div[data-testid="stFileUploader"] section[data-testid="stFileUploadDropzone"]:hover {
+    border-color: #2563EB !important;
+    background: #F8FAFC !important;
+}
+
+/* File Uploader Button styling — perfectly spaced, no text overlap */
+div[data-testid="stFileUploader"] section[data-testid="stFileUploadDropzone"] button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    padding: 10px 22px !important;
+    min-height: 46px !important;
+    border-radius: 10px !important;
+    font-size: 1.05rem !important;
+    font-weight: 700 !important;
+    background-color: #FFFFFF !important;
+    border: 1.5px solid #CBD5E1 !important;
+    color: #0F172A !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+}
+
+div[data-testid="stFileUploader"] section[data-testid="stFileUploadDropzone"] button:hover {
+    border-color: #2563EB !important;
+    color: #2563EB !important;
+    background-color: #EFF6FF !important;
+}
+
+div[data-testid="stFileUploader"] section[data-testid="stFileUploadDropzone"] button span {
+    font-size: 1.05rem !important;
+    font-weight: 700 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+}
+
+div[data-testid="stFileUploader"] section[data-testid="stFileUploadDropzone"] small {
+    font-size: 0.95rem !important;
+    color: #64748B !important;
+}
+
+/* Streamlit Radio & Selectbox Styling */
+div[data-testid="stRadio"] label {
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    color: #0F172A !important;
+}
+
+div[data-testid="stRadio"] div[role="radiogroup"] label {
+    font-size: 1.05rem !important;
+    font-weight: 600 !important;
+    padding: 6px 12px !important;
+}
+
+div[data-testid="stSelectbox"] label {
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    color: #0F172A !important;
+    margin-bottom: 6px !important;
+}
+
+div[data-testid="stSelectbox"] div[data-baseweb="select"] {
+    font-size: 1.05rem !important;
+    min-height: 48px !important;
+    border-radius: 10px !important;
+}
+
+/* Streamlit Slider */
+div[data-testid="stSlider"] label {
+    font-size: 1.05rem !important;
+    font-weight: 700 !important;
+    color: #0F172A !important;
+}
+
+/* Image Display Constraint — Fits comfortably on screen without scrolling */
+div[data-testid="stImage"] {
+    text-align: center;
+}
+
+div[data-testid="stImage"] img {
+    max-height: 480px !important;
+    width: auto !important;
+    max-width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    display: block !important;
+    object-fit: contain !important;
+    border-radius: 12px;
+    border: 1.5px solid #E2E8F0;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.07);
+    image-rendering: auto !important;
+}
+
+div[data-testid="stImage"] figcaption {
+    font-size: 0.95rem !important;
+    color: #64748B !important;
+    font-weight: 600 !important;
+    margin-top: 8px !important;
+}
+
+/* Alerts / Info Callouts */
+div[data-testid="stAlert"] {
+    font-size: 1.1rem !important;
+    padding: 18px 24px !important;
+    border-radius: 12px !important;
+    border-width: 1.5px !important;
+}
+
+/* Code & Tables */
+code {
+    font-family: 'JetBrains Mono', monospace !important;
+    background: #F1F5F9 !important;
+    border: 1px solid #CBD5E1;
+    border-radius: 5px;
+    padding: 3px 7px;
+    color: #0F172A !important;
+    font-size: 0.92em !important;
+}
+
+/* Header Cleanup */
+header[data-testid="stHeader"] {
+    background: transparent;
+}

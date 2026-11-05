@@ -1,0 +1,31 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environment
+.venv/
+env/
+venv/
+ENV/
+
+# Streamlit session & secrets
+.streamlit/secrets.toml
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Output exports & test artifacts
+outputs/*.tif
+outputs/*.png
+outputs/*.json
+outputs/*.geojson
+!outputs/.gitkeep
+
+# Checkpoint binaries (>50MB, download from HuggingFace/Drive)
+checkpoints/*.pth
+checkpoints/*.pt
+checkpoints/*.bin
