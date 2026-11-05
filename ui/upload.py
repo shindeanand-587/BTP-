@@ -13,9 +13,30 @@ from PIL import Image
 
 from inference.geospatial_io import load_image_from_bytes, ImageInputBundle
 
-SAMPLE_DIR = r"C:\BTP II\Urban_Extraction_Platform\sample_data"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SAMPLE_DIR = os.path.join(BASE_DIR, "sample_data")
 
 SAMPLE_PRESETS = {
+    "mumbai_balanced_urban": {
+        "name": "🌟 Mumbai Balanced Urban (Roads + Built-up + Green Canopy)",
+        "file": os.path.join(SAMPLE_DIR, "Mumbai_Balanced_Urban_chip878.tif"),
+        "sensor": "High-Res Multispectral GeoTIFF (1.24m GSD)"
+    },
+    "mumbai_dense_roads": {
+        "name": "🛣️ Mumbai Dense Arterial Road Grid (25.4% Roads, 8.4 km Total)",
+        "file": os.path.join(SAMPLE_DIR, "Mumbai_Dense_Road_Grid_chip19.tif"),
+        "sensor": "High-Res Multispectral GeoTIFF (1.24m GSD)"
+    },
+    "mumbai_urban_corridor": {
+        "name": "🏙️ Mumbai Urban Corridor (Transit & Infrastructure)",
+        "file": os.path.join(SAMPLE_DIR, "Mumbai_Urban_Corridor_chip495.tif"),
+        "sensor": "High-Res Multispectral GeoTIFF (1.24m GSD)"
+    },
+    "navi_mumbai_roads_shp": {
+        "name": "🗺️ Navi Mumbai Official Road Survey Shapefile (.zip bundle)",
+        "file": os.path.join(SAMPLE_DIR, "Navi_Mumbai_Road_Network_Shapefile.zip"),
+        "sensor": "ESRI Vector Shapefile Bundle"
+    },
     "wv3_8band": {
         "name": "WorldView-3 Native 8-Band GeoTIFF (1.24m GSD, EPSG:4326)",
         "file": os.path.join(SAMPLE_DIR, "sample_wv3_8band.tif"),
@@ -89,7 +110,8 @@ def render_upload():
         if os.path.exists(preset_info["file"]):
             with open(preset_info["file"], "rb") as f:
                 file_bytes = f.read()
-            bundle = load_image_from_bytes(file_bytes, os.path.basename(preset_info["file"]))
+            fname = str(preset_info["file"]).replace("\\", "/").split("/")[-1]
+            bundle = load_image_from_bytes(file_bytes, fname)
         else:
             st.error(f"Sample file not found: {preset_info['file']}")
     else:

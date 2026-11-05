@@ -34,8 +34,6 @@ def resolve_checkpoint_path(path: Optional[str]) -> str:
     """Resolves local absolute path or relative ./checkpoints path for cloud deployment across OS."""
     if not path:
         return ""
-    if os.path.exists(path):
-        return path
     base_dir = os.path.dirname(os.path.abspath(__file__))
     clean = str(path).replace("\\", "/")
     fname = clean.split("/")[-1]
@@ -45,6 +43,8 @@ def resolve_checkpoint_path(path: Optional[str]) -> str:
     cand2 = os.path.join(base_dir, fname)
     if os.path.exists(cand2):
         return cand2
+    if os.path.exists(path):
+        return path
     return cand1
 
 CORE_MODELS: Dict[str, Dict[str, Any]] = {
@@ -109,7 +109,7 @@ CORE_MODELS: Dict[str, Dict[str, Any]] = {
         "supported_bands": ["Panchromatic"],
         "band_count": 1,
         "input_dimensions": "1024x1024 or Tiled",
-        "checkpoint_path": r"C:\BTP II\Phase_2_Model_Training\experiments\exp2_builtup_balanced\checkpoints\best_model.pth",
+        "checkpoint_path": resolve_checkpoint_path(r"C:\BTP II\Phase_2_Model_Training\experiments\exp2_builtup_balanced\checkpoints\best_model.pth"),
         "adapter_class": "CartosatSegFormerAdapter",
         "status": "Ready",
         "is_ensemble": False,
@@ -156,7 +156,7 @@ CORE_MODELS: Dict[str, Dict[str, Any]] = {
         "supported_bands": ["Coastal", "Blue", "Green", "Yellow", "Red", "Red Edge", "NIR1", "NIR2"],
         "band_count": 8,
         "input_dimensions": "320x320 or Tiled",
-        "checkpoint_path": r"C:\BTP II\Multispectral_Project\experiments\highres_multispectral\native_1p24m\checkpoints\unet_best.pth",
+        "checkpoint_path": resolve_checkpoint_path(r"C:\BTP II\Multispectral_Project\experiments\highres_multispectral\native_1p24m\checkpoints\unet_best.pth"),
         "adapter_class": "WorldView3UNetAdapter",
         "status": "Ready",
         "is_ensemble": False,
@@ -323,7 +323,8 @@ TEAMMATE_PRESET_MODELS: Dict[str, Dict[str, Any]] = {
     }
 }
 
-DYNAMIC_REGISTRY_FILE = r"C:\BTP II\Urban_Extraction_Platform\teammate_models.json"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DYNAMIC_REGISTRY_FILE = os.path.join(BASE_DIR, "teammate_models.json")
 
 def get_dynamic_models() -> Dict[str, Dict[str, Any]]:
     """Loads dynamically uploaded teammate models from JSON file."""

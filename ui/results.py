@@ -23,7 +23,8 @@ from inference import get_adapter
 from inference.postprocessing import compute_class_distribution, render_confidence_map
 from model_registry import CLASS_MAPPING
 
-OUTPUTS_DIR = r"C:\BTP II\Urban_Extraction_Platform\outputs"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUTPUTS_DIR = os.path.join(BASE_DIR, "outputs")
 os.makedirs(OUTPUTS_DIR, exist_ok=True)
 
 def render_results():

@@ -18,8 +18,6 @@ def resolve_checkpoint_file(checkpoint_path: Optional[str]) -> Optional[str]:
     """Resolves local absolute, relative, or cloud ./checkpoints/ paths across Windows and Linux."""
     if not checkpoint_path:
         return None
-    if os.path.exists(checkpoint_path):
-        return checkpoint_path
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     # Extract filename handling Windows backslashes even when running on Linux
     clean = str(checkpoint_path).replace("\\", "/")
@@ -30,6 +28,8 @@ def resolve_checkpoint_file(checkpoint_path: Optional[str]) -> Optional[str]:
     cand2 = os.path.join(base_dir, fname)
     if os.path.exists(cand2):
         return cand2
+    if os.path.exists(checkpoint_path):
+        return checkpoint_path
     return None
 
 class BaseModelAdapter(ABC):

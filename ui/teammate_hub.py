@@ -17,7 +17,8 @@ from model_registry import (
     get_all_models
 )
 
-CHECKPOINT_DIR = r"C:\BTP II\Urban_Extraction_Platform\teammate_checkpoints"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CHECKPOINT_DIR = os.path.join(BASE_DIR, "teammate_checkpoints")
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 def render_teammate_hub_page():

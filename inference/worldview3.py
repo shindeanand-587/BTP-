@@ -311,7 +311,8 @@ class WorldView3BaseAdapter(BaseModelAdapter):
 
         duration = time.time() - t0
         if self.checkpoint_missing_on_host:
-            warnings.append(f"Model checkpoint '{os.path.basename(self.checkpoint_path or 'model.pth')}' was not found on host. Running in live preview demonstration mode.")
+            clean_name = str(self.checkpoint_path or 'model.pth').replace('\\', '/').split('/')[-1]
+            warnings.append(f"Model checkpoint '{clean_name}' was not found on host. Running in live preview demonstration mode.")
         return pred_mask, conf_map, duration, warnings
 
 class WorldView3SegFormerAdapter(WorldView3BaseAdapter):
