@@ -30,4 +30,9 @@ checkpoints/*.pth
 !checkpoints/segformer_best.pth
 checkpoints/*.pt
 checkpoints/*.bin
+teammate_checkpoints/*.pth
+teammate_checkpoints/*.pt
+teammate_checkpoints/*.bin
+teammate_checkpoints/*.safetensors
+teammate_repos/
 

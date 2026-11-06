@@ -215,6 +215,17 @@ def save_dynamic_model(model_dict: Dict[str, Any]):
     with open(DYNAMIC_REGISTRY_FILE, "w", encoding="utf-8") as f:
         json.dump(current, f, indent=2)
 
+def delete_dynamic_model(model_id: str) -> bool:
+    """Removes a dynamically registered teammate model from teammate_models.json."""
+    current = get_dynamic_models()
+    if model_id in current:
+        del current[model_id]
+        os.makedirs(os.path.dirname(DYNAMIC_REGISTRY_FILE), exist_ok=True)
+        with open(DYNAMIC_REGISTRY_FILE, "w", encoding="utf-8") as f:
+            json.dump(current, f, indent=2)
+        return True
+    return False
+
 def get_full_registry() -> Dict[str, Dict[str, Any]]:
     """Combines Team Lead Core Models + Preset Teammate Models + Dynamic Uploads."""
     reg = {}
