@@ -49,57 +49,16 @@ def resolve_checkpoint_path(path: Optional[str]) -> str:
 
 CORE_MODELS: Dict[str, Dict[str, Any]] = {
     # -------------------------------------------------------------
-    # 0. Deterministic Vector Survey Intelligence Engine (ESRI Shapefiles & GeoJSON)
-    # -------------------------------------------------------------
-    "vector_survey_engine": {
-        "id": "vector_survey_engine",
-        "display_name": "ESRI Vector Survey Intelligence (Direct Shapefile / GeoJSON)",
-        "owner": "Survey GIS Core",
-        "role_badge": "🗺️ Native Vector Delineator",
-        "architecture": "Vector Geometry Engine (Direct Polylines & Cadastre Parcels)",
-        "sensor": "ESRI Shapefile (.shp / .zip) & GeoJSON",
-        "native_gsd_m": 1.0,
-        "supported_bands": ["Vector Geometry", "Polyline", "Polygon"],
-        "band_count": 3,
-        "input_dimensions": "Vector Geometry or Tiled Canvas",
-        "checkpoint_path": None,
-        "adapter_class": "VectorSurveyAdapter",
-        "status": "Ready",
-        "is_ensemble": False,
-        "verified_metrics": {
-            "split": "Official Municipal Vector Cadastre & OpenStreetMap Network",
-            "source_report": "vector_survey_cadastre_specification.md",
-            "macro_miou": 100.0,
-            "overall_accuracy": 100.0,
-            "class_ious": {
-                "Water": 100.0,
-                "Vegetation": 100.0,
-                "Barren Land": 100.0,
-                "Built-up": 100.0,
-                "Roads": 100.0
-            },
-            "class_precision": {"Water": 100.0, "Vegetation": 100.0, "Barren Land": 100.0, "Built-up": 100.0, "Roads": 100.0},
-            "class_recall": {"Water": 100.0, "Vegetation": 100.0, "Barren Land": 100.0, "Built-up": 100.0, "Roads": 100.0}
-        },
-        "compatibility": {
-            "native_bands": [1, 3, 4, 8],
-            "allow_rgb_adaptation": True,
-            "supports_grayscale": True,
-            "notes": "Directly ingests and measures vector geometry with survey-grade 100% precision. Zero AI hallucination."
-        },
-        "description": "Deterministic survey geometry engine. Ingests ESRI Shapefiles (.shp, .zip) and GeoJSON, generating exact centerline vectors and boundary metrics."
-    },
-
-    # -------------------------------------------------------------
     # 1. WorldView-3 Native 1.24m SegFormer-B1 (Multispectral Best Overall)
     # -------------------------------------------------------------
     "wv3_native_segformer": {
         "id": "wv3_native_segformer",
-        "display_name": "WorldView-3 SegFormer-B1 (1.24m Native MS)",
+        "display_name": "SegFormer-B1 (WorldView-3 Multispectral)",
         "owner": "Core System",
         "role_badge": "🌟 Multispectral Champion",
         "architecture": "SegFormer-B1 (MiT-B1 All-MLP)",
         "sensor": "Maxar WorldView-3",
+        "dataset_name": "WorldView-3 Multispectral",
         "native_gsd_m": 1.24,
         "supported_bands": ["Coastal", "Blue", "Green", "Yellow", "Red", "Red Edge", "NIR1", "NIR2"],
         "band_count": 8,
@@ -142,11 +101,12 @@ CORE_MODELS: Dict[str, Dict[str, Any]] = {
     # -------------------------------------------------------------
     "cartosat_pan_segformer": {
         "id": "cartosat_pan_segformer",
-        "display_name": "Cartosat-1 PAN SegFormer-B1 (2.5m)",
+        "display_name": "Cartosat PAN SegFormer-B1 (Cartosat-1 PAN)",
         "owner": "Core System",
         "role_badge": "🗺️ Panchromatic Specialist",
         "architecture": "SegFormer-B1 (Single-Band Adapted)",
         "sensor": "ISRO Cartosat-1 (PAN)",
+        "dataset_name": "Cartosat-1 PAN",
         "native_gsd_m": 2.50,
         "supported_bands": ["Panchromatic"],
         "band_count": 1,
@@ -189,11 +149,12 @@ CORE_MODELS: Dict[str, Dict[str, Any]] = {
     # -------------------------------------------------------------
     "wv3_native_unet": {
         "id": "wv3_native_unet",
-        "display_name": "WorldView-3 U-Net ResNet34 (1.24m)",
+        "display_name": "U-Net ResNet34 (WorldView-3 Multispectral)",
         "owner": "Core System",
         "role_badge": "🌊 Boundary & Water Specialist",
         "architecture": "U-Net (ResNet34 Encoder 8-ch)",
         "sensor": "Maxar WorldView-3",
+        "dataset_name": "WorldView-3 Multispectral",
         "native_gsd_m": 1.24,
         "supported_bands": ["Coastal", "Blue", "Green", "Yellow", "Red", "Red Edge", "NIR1", "NIR2"],
         "band_count": 8,
@@ -230,140 +191,8 @@ CORE_MODELS: Dict[str, Dict[str, Any]] = {
     }
 }
 
-# Teammates' Models (4 to 6 model slots)
-TEAMMATE_PRESET_MODELS: Dict[str, Dict[str, Any]] = {
-    # -------------------------------------------------------------
-    # 4. Teammate 1 - Model A (High-Res Urban Road Segmenter)
-    # -------------------------------------------------------------
-    "friend1_model_a": {
-        "id": "friend1_model_a",
-        "display_name": "HRNet-W48 Road Network Segmenter",
-        "owner": "Custom Model Hub",
-        "role_badge": "🛣️ Road Specialization",
-        "architecture": "HRNet-W48 High-Resolution Feature Network",
-        "sensor": "Cartosat / Aerial High-Res",
-        "native_gsd_m": 1.00,
-        "supported_bands": ["Red", "Green", "Blue"],
-        "band_count": 3,
-        "input_dimensions": "512x512",
-        "checkpoint_path": None,
-        "adapter_class": "GenericPyTorchAdapter",
-        "status": "Ready for Weights",
-        "is_ensemble": False,
-        "verified_metrics": {
-            "split": "Cross-validation Benchmark",
-            "macro_miou": 53.40,
-            "overall_accuracy": 81.20,
-            "class_ious": {"Water": 35.10, "Vegetation": 68.20, "Barren Land": 12.00, "Built-up": 74.50, "Roads": 77.20}
-        },
-        "compatibility": {
-            "native_bands": [3],
-            "allow_rgb_adaptation": True,
-            "supports_grayscale": True,
-            "notes": "Multi-resolution parallel branches preserve continuous high-frequency road corridors."
-        },
-        "description": "High-Resolution Network (HRNet-W48) maintaining parallel multi-scale convolutions to avoid downsampling blur on narrow arterial roads."
-    },
-
-    # -------------------------------------------------------------
-    # 5. Teammate 1 - Model B (Building Footprint Segmenter)
-    # -------------------------------------------------------------
-    "friend1_model_b": {
-        "id": "friend1_model_b",
-        "display_name": "Swin-Transformer Building Extractor",
-        "owner": "Custom Model Hub",
-        "role_badge": "🏢 Built-up Footprints",
-        "architecture": "Swin-Transformer Urban Feature FPN",
-        "sensor": "Optical Multispectral",
-        "native_gsd_m": 2.00,
-        "supported_bands": ["Red", "Green", "Blue", "NIR"],
-        "band_count": 4,
-        "input_dimensions": "512x512",
-        "checkpoint_path": None,
-        "adapter_class": "GenericPyTorchAdapter",
-        "status": "Ready for Weights",
-        "is_ensemble": False,
-        "verified_metrics": {
-            "split": "Dense Urban Test Split",
-            "macro_miou": 51.80,
-            "overall_accuracy": 82.10,
-            "class_ious": {"Water": 38.00, "Vegetation": 66.50, "Barren Land": 15.20, "Built-up": 78.90, "Roads": 60.40}
-        },
-        "compatibility": {
-            "native_bands": [4, 3],
-            "allow_rgb_adaptation": True,
-            "supports_grayscale": False,
-            "notes": "Shifted window self-attention isolates dense residential housing and informal settlements."
-        },
-        "description": "Hierarchical Swin Transformer with shifted windows to compute local self-attention on compact building roofs and courtyards."
-    },
-
-    # -------------------------------------------------------------
-    # 6. Teammate 2 - Model A (Land Cover & Water Body Segmenter)
-    # -------------------------------------------------------------
-    "friend2_model_a": {
-        "id": "friend2_model_a",
-        "display_name": "ConvNeXt-Base Land Cover Segmenter",
-        "owner": "Custom Model Hub",
-        "role_badge": "🌳 Regional Land Cover",
-        "architecture": "ConvNeXt-Base Feature Pyramid Network",
-        "sensor": "Sentinel-2 / Multi-Sensor",
-        "native_gsd_m": 10.0,
-        "supported_bands": ["Blue", "Green", "Red", "NIR"],
-        "band_count": 4,
-        "input_dimensions": "256x256",
-        "checkpoint_path": None,
-        "adapter_class": "GenericPyTorchAdapter",
-        "status": "Ready for Weights",
-        "is_ensemble": False,
-        "verified_metrics": {
-            "split": "Regional Land Cover Split",
-            "macro_miou": 48.70,
-            "overall_accuracy": 76.50,
-            "class_ious": {"Water": 68.30, "Vegetation": 71.40, "Barren Land": 34.20, "Built-up": 56.10, "Roads": 33.50}
-        },
-        "compatibility": {
-            "native_bands": [4],
-            "allow_rgb_adaptation": True,
-            "supports_grayscale": False,
-            "notes": "Pure convolutional network with $7 \times 7$ depthwise kernels optimized for broad macro vegetation and open water."
-        },
-        "description": "Modern ConvNeXt-Base architecture competing with vision transformers for regional multispectral land cover classification."
-    },
-
-    # -------------------------------------------------------------
-    # 7. Teammate 2 - Model B (Spectral Boundary Refinement Model)
-    # -------------------------------------------------------------
-    "friend2_model_b": {
-        "id": "friend2_model_b",
-        "display_name": "PSPNet Boundary Refiner",
-        "owner": "Custom Model Hub",
-        "role_badge": "📐 Edge & Boundary Refiner",
-        "architecture": "PSPNet with Edge-Loss Regularization",
-        "sensor": "Cartosat + Optical Hybrid",
-        "native_gsd_m": 2.50,
-        "supported_bands": ["RGB / Panchromatic"],
-        "band_count": 3,
-        "input_dimensions": "512x512",
-        "checkpoint_path": None,
-        "adapter_class": "GenericPyTorchAdapter",
-        "status": "Ready for Weights",
-        "is_ensemble": False,
-        "verified_metrics": {
-            "split": "Boundary Refinement Benchmark",
-            "macro_miou": 50.90,
-            "overall_accuracy": 79.80,
-            "class_ious": {"Water": 46.20, "Vegetation": 67.80, "Barren Land": 21.00, "Built-up": 72.30, "Roads": 67.20}
-        },
-        "compatibility": {
-            "native_bands": [3, 1],
-            "allow_rgb_adaptation": True,
-            "supports_grayscale": True,
-            "notes": "Pyramid spatial pooling gathers global sub-region context to sharpen transition boundaries."
-        },
-        "description": "Pyramid Scene Parsing Network (PSPNet) leveraging multi-scale pooling modules to refine blurry pixel transitions at urban-water-road edges."
-    }
-}
+# Teammates' Models (Populated dynamically when teammates upload model weights)
+TEAMMATE_PRESET_MODELS: Dict[str, Dict[str, Any]] = {}
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DYNAMIC_REGISTRY_FILE = os.path.join(BASE_DIR, "teammate_models.json")

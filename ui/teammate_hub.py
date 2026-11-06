@@ -36,7 +36,7 @@ def render_teammate_hub_page():
         st.markdown('<div style="font-size: 1.15rem; font-weight: 700; color: #0F172A; margin-bottom: 12px;">➕ Register New Model</div>', unsafe_allow_html=True)
 
         with st.form("teammate_model_upload_form", clear_on_submit=False):
-            model_name = st.text_input("Model Display Name:", placeholder="e.g. HRNet-W48 Urban Road Segmenter")
+            model_name = st.text_input("Model Display Name (include dataset in bracket):", placeholder="e.g. HRNet-W48 (SpaceNet Roads)")
             owner_name = st.text_input("Author / Contributor:", placeholder="e.g. Teammate 1 / Research Contributor")
 
             c_arch, c_sensor = st.columns(2)

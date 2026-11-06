@@ -42,15 +42,15 @@ def render_comparison_page():
     st.markdown('<div style="font-weight: 700; color: #0F172A; font-size: 1.05rem; margin-bottom: 8px;">Select Models to Compare Side-by-Side:</div>', unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
 
-    model_options = {m["id"]: f"{m.get('role_badge', '🤖')} {m['display_name']}" for m in all_models}
+    model_options = {m["id"]: m["display_name"] for m in all_models}
     keys = list(model_options.keys())
 
     with c1:
-        m1_id = st.selectbox("Model 1 (Primary):", options=keys, index=0 if len(keys) > 0 else 0)
+        m1_id = st.selectbox("Model 1 (Primary):", options=keys, format_func=lambda x: model_options.get(x, x), index=0 if len(keys) > 0 else 0)
     with c2:
-        m2_id = st.selectbox("Model 2 (Comparison):", options=keys, index=1 if len(keys) > 1 else 0)
+        m2_id = st.selectbox("Model 2 (Comparison):", options=keys, format_func=lambda x: model_options.get(x, x), index=1 if len(keys) > 1 else 0)
     with c3:
-        m3_id = st.selectbox("Model 3 (Optional):", options=["None"] + keys, index=3 if len(keys) > 2 else 0)
+        m3_id = st.selectbox("Model 3 (Optional):", options=["None"] + keys, format_func=lambda x: model_options.get(x, "None") if x != "None" else "None", index=2 if len(keys) > 2 else 0)
 
     selected_ids = [m1_id, m2_id]
     if m3_id != "None" and m3_id not in selected_ids:

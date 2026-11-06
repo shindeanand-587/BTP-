@@ -68,19 +68,12 @@ from ui.teammate_hub import render_teammate_hub_page
 # Clean, Professional Product Header with v2 Intelligence Badge
 st.markdown("""
 <div class="platform-hero">
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-        <div>
-            <div class="platform-title">
-                🛰️ Urban Feature Extraction Platform
-            </div>
-            <div class="platform-subtitle">
-                Automated High-Resolution Satellite & Aerial Imagery Semantic Segmentation
-            </div>
+    <div>
+        <div class="platform-title">
+            🛰️ Urban Feature Extraction Platform
         </div>
-        <div>
-            <span class="badge badge-sensor" style="font-size: 0.95rem; padding: 6px 16px; font-weight: 700;">
-                🔬 Advanced Intelligence Studio (v2)
-            </span>
+        <div class="platform-subtitle">
+            Automated High-Resolution Satellite & Aerial Imagery Semantic Segmentation
         </div>
     </div>
 </div>

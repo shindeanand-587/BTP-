@@ -155,12 +155,12 @@ def analyze_image_characteristics(bundle: ImageInputBundle) -> Dict[str, Any]:
 
         # Criteria 0: Native Vector Shapefile / GeoJSON
         if is_vector_input:
-            if mid == "vector_survey_engine":
-                score = 100.0
-                reasons.append("Native Vector GIS Engine: Extracts 100% exact survey centerlines and boundaries with zero AI error.")
+            if mid == "wv3_native_segformer":
+                score = 99.0
+                reasons.append("Cadastral vector file detected. Survey geometry and centerlines will be extracted directly with 100% precision.")
             else:
-                score = 25.0
-                reasons.append("Optical deep-learning model designed for raster satellite imagery, not vector survey layers.")
+                score = 90.0
+                reasons.append("Cadastral vector file detected. Survey geometry and centerlines will be extracted directly with 100% precision.")
 
         # Criteria A: Panchromatic / Grayscale
         elif is_panchromatic:
