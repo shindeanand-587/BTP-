@@ -132,19 +132,12 @@ def load_shapefile_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
     w_px = 1024
     h_px = int(np.clip(round(w_px * (dy / dx)), 256, 1536))
 
-    img = Image.new("RGB", (w_px, h_px), (15, 23, 42))
-    draw = ImageDraw.Draw(img)
-
-    vector_mask_img = Image.new("L", (w_px, h_px), 2) # Base surface: Class 2 (Barren Land)
-    draw_mask = ImageDraw.Draw(vector_mask_img)
-
-    centerline_img = Image.new("1", (w_px, h_px), 0)
-    draw_skel = ImageDraw.Draw(centerline_img)
-
     fn_low = filename.lower()
     is_road = any(w in fn_low for w in ["road", "street", "highway", "avenue", "traffic", "lane", "network"])
     is_built = any(w in fn_low for w in ["built", "structure", "building", "parcel", "house", "footprint"])
     is_water = any(w in fn_low for w in ["water", "creek", "river", "bay", "ocean", "sea", "lake", "drain"])
+
+    target_class = 4 if is_road else (3 if is_built else (0 if is_water else 4))
 
     import math
     tot_len_m = 0.0
@@ -160,60 +153,65 @@ def load_shapefile_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
             for x, y in pts
         ]
         is_poly = s.shapeType in (shapefile.POLYGON, shapefile.POLYGONZ, shapefile.POLYGONM)
-        
-        if is_road:
-            if is_poly:
-                draw_mask.polygon(pix_pts, fill=4)
-                draw.polygon(pix_pts, fill=(250, 204, 21), outline=(255, 255, 255))
-            else:
-                draw_mask.line(pix_pts, fill=4, width=6)
-                draw_skel.line(pix_pts, fill=1, width=1)
-                draw.line(pix_pts, fill=(255, 255, 255), width=6)
-                draw.line(pix_pts, fill=(250, 204, 21), width=4)
-                vector_polylines.append(pix_pts)
-            for i in range(len(pts) - 1):
-                p1, p2 = pts[i], pts[i+1]
-                if dx > 1000:
-                    tot_len_m += math.hypot(p2[0] - p1[0], p2[1] - p1[1])
-                else:
-                    mid_lat = math.radians((p1[1] + p2[1]) / 2.0)
-                    deg_x = (p2[0] - p1[0]) * 111_000.0 * math.cos(mid_lat)
-                    deg_y = (p2[1] - p1[1]) * 111_000.0
-                    tot_len_m += math.hypot(deg_x, deg_y)
-        elif is_built:
-            if is_poly:
-                draw_mask.polygon(pix_pts, fill=3)
-                draw.polygon(pix_pts, fill=(225, 29, 72), outline=(255, 255, 255))
-            else:
-                draw_mask.line(pix_pts, fill=3, width=5)
-                draw.line(pix_pts, fill=(225, 29, 72), width=3)
-        elif is_water:
-            if is_poly:
-                draw_mask.polygon(pix_pts, fill=0)
-                draw.polygon(pix_pts, fill=(8, 102, 255), outline=(147, 197, 253))
-            else:
-                draw_mask.line(pix_pts, fill=0, width=5)
-                draw.line(pix_pts, fill=(8, 102, 255), width=5)
-        else:
-            if is_poly:
-                draw_mask.polygon(pix_pts, fill=4)
-                draw.polygon(pix_pts, fill=(6, 182, 212), outline=(255, 255, 255))
-            else:
-                draw_mask.line(pix_pts, fill=4, width=5)
-                draw_skel.line(pix_pts, fill=1, width=1)
-                draw.line(pix_pts, fill=(250, 204, 21), width=3)
-                vector_polylines.append(pix_pts)
-            for i in range(len(pts) - 1):
-                p1, p2 = pts[i], pts[i+1]
-                if dx > 1000:
-                    tot_len_m += math.hypot(p2[0] - p1[0], p2[1] - p1[1])
-                else:
-                    mid_lat = math.radians((p1[1] + p2[1]) / 2.0)
-                    deg_x = (p2[0] - p1[0]) * 111_000.0 * math.cos(mid_lat)
-                    deg_y = (p2[1] - p1[1]) * 111_000.0
-                    tot_len_m += math.hypot(deg_x, deg_y)
+        if not is_poly and is_road:
+            vector_polylines.append(pix_pts)
 
-    rgb_preview = np.array(img, dtype=np.uint8)
+        for i in range(len(pts) - 1):
+            p1, p2 = pts[i], pts[i+1]
+            if dx > 1000:
+                tot_len_m += math.hypot(p2[0] - p1[0], p2[1] - p1[1])
+            else:
+                mid_lat = math.radians((p1[1] + p2[1]) / 2.0)
+                deg_x = (p2[0] - p1[0]) * 111_000.0 * math.cos(mid_lat)
+                deg_y = (p2[1] - p1[1]) * 111_000.0
+                tot_len_m += math.hypot(deg_x, deg_y)
+
+    # High-precision vector rasterization preserving interior polygon holes and line segments
+    try:
+        import rasterio.features
+        from rasterio.transform import from_bounds
+        transform = from_bounds(xmin, ymin, xmax, ymax, w_px, h_px)
+        geoms = [(s.__geo_interface__, target_class) for s in shapes if s.points]
+        vector_mask = rasterio.features.rasterize(
+            geoms,
+            out_shape=(h_px, w_px),
+            transform=transform,
+            fill=255, # Unsurveyed neutral margin (NoData)
+            dtype=np.uint8
+        )
+    except Exception:
+        vector_mask_img = Image.new("L", (w_px, h_px), 255)
+        draw_mask = ImageDraw.Draw(vector_mask_img)
+        for s in shapes:
+            if not s.points:
+                continue
+            pix_pts = [
+                (int(round((x - xmin) / dx * (w_px - 1))),
+                 int(round((ymax - y) / dy * (h_px - 1))))
+                for x, y in s.points
+            ]
+            if s.shapeType in (shapefile.POLYGON, shapefile.POLYGONZ, shapefile.POLYGONM):
+                draw_mask.polygon(pix_pts, fill=target_class)
+            else:
+                draw_mask.line(pix_pts, fill=target_class, width=6)
+        vector_mask = np.array(vector_mask_img, dtype=np.uint8)
+
+    # Compute high-fidelity medial axis centerlines for road vectors
+    if is_road:
+        from inference.urban_analytics import zhang_suen_thinning
+        centerline_arr = zhang_suen_thinning(vector_mask == 4, max_iters=150)
+    else:
+        centerline_arr = np.zeros((h_px, w_px), dtype=bool)
+
+    # Generate crisp survey preview image
+    rgb_preview = np.full((h_px, w_px, 3), (15, 23, 42), dtype=np.uint8)
+    if (vector_mask == 4).any():
+        rgb_preview[vector_mask == 4] = (250, 204, 21) # Vibrant Gold for Roads
+    if (vector_mask == 3).any():
+        rgb_preview[vector_mask == 3] = (225, 29, 72)  # High-vis Crimson for Built-up
+    if (vector_mask == 0).any():
+        rgb_preview[vector_mask == 0] = (8, 102, 255)  # Azure Blue for Water
+
     raw_array = np.transpose(rgb_preview.astype(np.float32), (2, 0, 1))
 
     if dx > 1000:
@@ -238,8 +236,8 @@ def load_shapefile_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
         filename=filename
     )
     bundle.is_vector = True
-    bundle.vector_mask = np.array(vector_mask_img, dtype=np.uint8)
-    bundle.vector_centerlines = np.array(centerline_img, dtype=bool)
+    bundle.vector_mask = vector_mask
+    bundle.vector_centerlines = centerline_arr
     bundle.vector_polylines = vector_polylines
     bundle.total_vector_length_km = tot_len_m / 1000.0
     bundle.vector_feature_count = len(shapes)
@@ -281,7 +279,7 @@ def load_geojson_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
     img = Image.new("RGB", (w_px, h_px), (15, 23, 42))
     draw = ImageDraw.Draw(img)
 
-    vector_mask_img = Image.new("L", (w_px, h_px), 2)
+    vector_mask_img = Image.new("L", (w_px, h_px), 255) # Neutral Unsurveyed Background (NoData)
     draw_mask = ImageDraw.Draw(vector_mask_img)
 
     centerline_img = Image.new("1", (w_px, h_px), 0)

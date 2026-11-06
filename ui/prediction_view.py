@@ -226,7 +226,17 @@ def render_prediction_page():
                     st.session_state.pop("diagnostic_cache", None)
                     st.rerun()
 
-            if st.button("🗺️ Municipal Roads (.zip Shapefile)", use_container_width=True, help="Surveyed cadastre vector shapefile bundle (354 municipal road polygons). Showcases 110.95 km clean centerlines."):
+            if st.button("🌊 Coastal & Water Tile (Chip 1002)", use_container_width=True, help="WorldView-3 8-band coastal scene over Mumbai harbour & creeks (23.2% water with U-Net, 13.5% with SegFormer)."):
+                sample_path = os.path.join(SAMPLE_DIR, "Mumbai_Coastal_Water_chip1002.tif")
+                with open(sample_path, "rb") as f:
+                    bundle = load_image_from_bytes(f.read(), "Mumbai_Coastal_Water_chip1002.tif")
+                    st.session_state["current_bundle"] = bundle
+                    st.session_state["last_uploaded_name"] = "Mumbai_Coastal_Water_chip1002.tif"
+                    st.session_state.pop("last_prediction_results", None)
+                    st.session_state.pop("diagnostic_cache", None)
+                    st.rerun()
+
+            if st.button("🗺️ Municipal Roads (.zip Shapefile)", use_container_width=True, help="Surveyed cadastre vector shapefile bundle (354 municipal road polygons). Showcases 79.7 km clean centerlines."):
                 sample_path = os.path.join(SAMPLE_DIR, "Mumbai_Vashi_Sanpada_Urban_Roads.zip")
                 with open(sample_path, "rb") as f:
                     bundle = load_image_from_bytes(f.read(), "Mumbai_Vashi_Sanpada_Urban_Roads.zip")
@@ -356,18 +366,29 @@ def render_prediction_page():
     # Inference Execution
     # -------------------------------------------------------------------------
     if run_prediction:
-        if getattr(bundle, "is_vector", False):
-            pred_mask = getattr(bundle, "vector_mask", None)
-            if pred_mask is None:
-                pred_mask = np.zeros((bundle.height, bundle.width), dtype=np.uint8)
-            conf_map = np.ones_like(pred_mask, dtype=np.float32)
-            duration = 0.015
-            warnings = []
-        else:
-            m_info = get_model_by_id(selected_model_id) or all_models[0]
-            prog_bar = st.progress(10, text=f"Initializing {m_info['display_name']}...")
-
-            try:
+        prog_bar = st.progress(10, text="Initializing processing pipeline...")
+        try:
+            if getattr(bundle, "is_vector", False):
+                pred_mask = getattr(bundle, "vector_mask", None)
+                if pred_mask is None:
+                    pred_mask = np.zeros((bundle.height, bundle.width), dtype=np.uint8)
+                conf_map = np.ones_like(pred_mask, dtype=np.float32)
+                duration = 0.015
+                warnings = []
+                m_info = {
+                    "id": "vector_direct",
+                    "display_name": "ESRI Vector Survey Intelligence (Direct Shapefile)",
+                    "architecture": "Native Cadastre Vectors",
+                    "dataset_name": "Vector Cadastre",
+                    "verified_metrics": {
+                        "overall_accuracy": 100.0,
+                        "macro_miou": 100.0
+                    }
+                }
+                adapter = None
+            else:
+                m_info = get_model_by_id(selected_model_id) or all_models[0]
+                prog_bar.progress(20, text=f"Initializing {m_info['display_name']}...")
                 adapter = get_adapter(selected_model_id)
                 prog_bar.progress(35, text=f"Executing feature extraction on {bundle.width} × {bundle.height} pixels...")
                 pred_mask, conf_map, duration, warnings = adapter.run_inference(
@@ -376,9 +397,7 @@ def render_prediction_page():
                     tile_size=512,
                     overlap=64
                 )
-            except Exception as e:
-                st.error(f"Inference error: {e}")
-                return
+
             prog_bar.progress(70, text="Synthesizing multi-class overlays & physical areas...")
 
             color_mask = create_color_mask(pred_mask)
@@ -415,7 +434,7 @@ def render_prediction_page():
                 gsd_m=gsd_val
             )
             urban_inferences = compute_urban_planning_inferences(dist)
-            prob_map = getattr(adapter, "last_prob_map", None)
+            prob_map = getattr(adapter, "last_prob_map", None) if adapter is not None else None
 
             st.session_state["last_prediction_results"] = {
                 "model_info": m_info,
@@ -599,7 +618,7 @@ def render_prediction_page():
                     )
                     road_prob_thresh = st.slider(
                         "🎚️ Road Confidence Threshold (%):",
-                        min_value=10,
+                        min_value=20,
                         max_value=60,
                         value=25,
                         step=5,

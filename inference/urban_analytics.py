@@ -69,7 +69,7 @@ def normalize_gsd(gsd_m: Any) -> Tuple[float, float]:
     return gsd_linear, pixel_area_m2
 
 
-def zhang_suen_thinning(mask: np.ndarray, max_iters: int = 40) -> np.ndarray:
+def zhang_suen_thinning(mask: np.ndarray, max_iters: int = 150) -> np.ndarray:
     """
     Pure vectorized NumPy Zhang-Suen morphological thinning.
     Guarantees true 1-pixel medial axis centerlines running through the center of roads
@@ -391,7 +391,7 @@ def extract_actionable_road_corridors(
         full_centerline = skel_arterial | skel_minor
 
         if full_centerline.sum() == 0:
-            full_centerline = working_mask
+            full_centerline = np.zeros((h, w), dtype=bool)
 
         # Fallback if arterial skeleton is empty but full has roads
         if skel_arterial.sum() == 0 and full_centerline.any():
