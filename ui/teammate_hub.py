@@ -239,6 +239,9 @@ def render_teammate_hub_page():
                                 "overall_accuracy": float(reported_oa),
                                 "class_ious": {"Water": 45.0, "Vegetation": 68.0, "Barren Land": 15.0, "Built-up": 72.0, "Roads": 65.0}
                             },
+                            "class_weights": {
+                                "Water": 1.0, "Vegetation": 1.0, "Barren Land": 1.0, "Built-up": 1.0, "Roads": 1.0
+                            },
                             "compatibility": {
                                 "native_bands": [bands_num],
                                 "allow_rgb_adaptation": True,

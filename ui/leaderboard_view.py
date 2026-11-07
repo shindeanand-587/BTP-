@@ -1,11 +1,11 @@
 """
 ui/leaderboard_view.py
 ----------------------
-Comprehensive Model Leaderboard & Specifications.
+Comprehensive Model Specifications & Empirical Benchmarks.
 Displays:
-1. Visual Podium & Ranking across the 3 Core Models + Contributed Models.
-2. Interactive Radar & Multi-Class IoU Comparison Chart.
-3. Complete Empirical Specification Table with verified test-set metrics.
+1. Architectural Specification Profiles across Core and Contributed Models.
+2. Interactive Class-wise IoU and Accuracy Benchmark Visualizer.
+3. Complete Model Specification Table with trained class weights and verified test-set metrics.
 """
 
 import streamlit as st
@@ -16,50 +16,62 @@ from typing import Dict, Any, List
 from model_registry import get_all_models, get_core_models, get_teammate_models
 
 def render_leaderboard_page():
-    st.markdown('<div class="section-header" style="margin-top: 0;">🏆 Model Leaderboard & Specifications</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header" style="margin-top: 0;">🏆 Model Specifications & Empirical Benchmarks</div>', unsafe_allow_html=True)
 
     st.markdown("""
     <div style="font-size: 1.0rem; color: #64748B; margin-bottom: 20px; font-weight: 500;">
-        Empirical performance rankings and architectural trade-offs across all registered segmentation models evaluated on 5 urban classes.
+        Empirical evaluation evidence, class-loss training weights, and architectural specifications across all registered models evaluated on 5 urban classes.
     </div>
     """, unsafe_allow_html=True)
 
     all_models = get_all_models()
 
     # -------------------------------------------------------------------------
-    # 1. Visual Podium (Top 3 Core Models) in Clean Modern Light Theme
+    # 1. Model Architectural Specification Profiles (Clean Light Theme)
     # -------------------------------------------------------------------------
     podium_cols = st.columns(3)
-
     core_models = get_core_models()
-    core_sorted = sorted(core_models, key=lambda m: m["verified_metrics"]["overall_accuracy"], reverse=True)
 
-    ranks = [
-        {"place": "🥇 #1 Highest Accuracy", "color": "#B45309", "border": "#FDE68A", "bg": "#FFFBEB"},
-        {"place": "🥈 #2 High-Resolution Spatial", "color": "#1E40AF", "border": "#BFDBFE", "bg": "#EFF6FF"},
-        {"place": "🥉 #3 Texture & Boundary", "color": "#065F46", "border": "#A7F3D0", "bg": "#ECFDF5"}
+    card_themes = [
+        {"badge": "🌟 Multispectral Benchmark", "color": "#1D4ED8", "border": "#BFDBFE", "bg": "#EFF6FF"},
+        {"badge": "🗺️ Panchromatic Benchmark", "color": "#0369A1", "border": "#BAE6FD", "bg": "#F0F9FF"},
+        {"badge": "🌊 Boundary & Water Specialist", "color": "#0F766E", "border": "#99F6E4", "bg": "#F0FDFA"}
     ]
 
-    for idx, m in enumerate(core_sorted[:3]):
-        r = ranks[idx]
+    for idx, m in enumerate(core_models[:3]):
+        thm = card_themes[idx % len(card_themes)]
         metrics = m["verified_metrics"]
+        cw = m.get("class_weights", {"Water": 1.0, "Vegetation": 1.0, "Barren Land": 1.0, "Built-up": 1.0, "Roads": 1.0})
         with podium_cols[idx]:
             st.markdown(f"""
-            <div style="background: {r['bg']}; border: 1.5px solid {r['border']}; border-radius: 12px; padding: 20px 18px; text-align: center; margin-bottom: 22px; box-shadow: 0 2px 6px rgba(15,23,42,0.04);">
-                <div style="font-size: 1.15rem; font-weight: 800; color: {r['color']}; margin-bottom: 6px;">{r['place']}</div>
+            <div style="background: {thm['bg']}; border: 1.5px solid {thm['border']}; border-radius: 12px; padding: 20px 18px; text-align: center; margin-bottom: 22px; box-shadow: 0 2px 6px rgba(15,23,42,0.04);">
+                <div style="font-size: 1.05rem; font-weight: 800; color: {thm['color']}; margin-bottom: 6px;">{thm['badge']}</div>
                 <div style="font-size: 1.15rem; font-weight: 800; color: #0F172A;">{m['display_name']}</div>
-                <div style="font-size: 0.88rem; color: #64748B; margin-bottom: 14px; font-weight: 600;">{m['architecture']} • {m['sensor']}</div>
-                <div style="display: flex; justify-content: space-around; background: #FFFFFF; border: 1px solid {r['border']}; padding: 10px 14px; border-radius: 10px;">
+                <div style="font-size: 0.88rem; color: #64748B; margin-bottom: 12px; font-weight: 600;">{m['architecture']} • {m['sensor']}</div>
+                
+                <div style="display: flex; justify-content: space-around; background: #FFFFFF; border: 1px solid {thm['border']}; padding: 10px 14px; border-radius: 10px;">
                     <div>
-                        <div style="font-size: 0.78rem; color: #64748B; font-weight: 700;">ACCURACY</div>
+                        <div style="font-size: 0.76rem; color: #64748B; font-weight: 700;">ACCURACY</div>
                         <div style="font-size: 1.35rem; font-weight: 800; color: #1D4ED8; font-family: 'JetBrains Mono', monospace;">{metrics['overall_accuracy']:.1f}%</div>
                     </div>
                     <div>
-                        <div style="font-size: 0.78rem; color: #64748B; font-weight: 700;">MEAN IOU</div>
+                        <div style="font-size: 0.76rem; color: #64748B; font-weight: 700;">MEAN IOU</div>
                         <div style="font-size: 1.35rem; font-weight: 800; color: #059669; font-family: 'JetBrains Mono', monospace;">{metrics['macro_miou']:.1f}%</div>
                     </div>
                 </div>
-                <div style="font-size: 0.88rem; color: #334155; margin-top: 12px; text-align: left; line-height: 1.45; font-weight: 500;">
+
+                <div style="background: #FFFFFF; border: 1px dashed {thm['border']}; border-radius: 8px; padding: 10px 12px; margin-top: 12px; text-align: left;">
+                    <div style="font-size: 0.78rem; font-weight: 700; color: #334155; margin-bottom: 3px;">⚖️ Trained Class Weights:</div>
+                    <div style="font-size: 0.80rem; color: #475569; font-family: 'JetBrains Mono', monospace; font-weight: 600;">
+                        💧 W: <b>{cw.get('Water', 1.0):.1f}×</b> &nbsp;|&nbsp; 
+                        🌿 V: <b>{cw.get('Vegetation', 1.0):.1f}×</b> &nbsp;|&nbsp; 
+                        🏜️ B: <b>{cw.get('Barren Land', 1.0):.1f}×</b><br>
+                        🏢 U: <b>{cw.get('Built-up', 1.0):.1f}×</b> &nbsp;|&nbsp; 
+                        🛣️ R: <b>{cw.get('Roads', 1.0):.1f}×</b>
+                    </div>
+                </div>
+
+                <div style="font-size: 0.85rem; color: #334155; margin-top: 10px; text-align: left; line-height: 1.45; font-weight: 500;">
                     • <b>Specialization:</b> {m['description']}
                 </div>
             </div>
@@ -68,7 +80,7 @@ def render_leaderboard_page():
     # -------------------------------------------------------------------------
     # 2. Interactive Class-wise IoU Bar Chart (Light Theme)
     # -------------------------------------------------------------------------
-    st.markdown('<div class="section-header">📊 Class-Wise Metric Comparison Across All Models</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📊 Class-Wise Metric Benchmark Across Models</div>', unsafe_allow_html=True)
 
     c_select, _ = st.columns([1.8, 2.2])
     with c_select:
@@ -125,6 +137,8 @@ def render_leaderboard_page():
         ious = metrics.get("class_ious", {})
         oa = metrics.get("overall_accuracy", 0.0)
         miou = metrics.get("macro_miou", 0.0)
+        cw = m.get("class_weights", {"Water": 1.0, "Vegetation": 1.0, "Barren Land": 1.0, "Built-up": 1.0, "Roads": 1.0})
+        cw_str = f"[{cw.get('Water', 1.0):.1f}, {cw.get('Vegetation', 1.0):.1f}, {cw.get('Barren Land', 1.0):.1f}, {cw.get('Built-up', 1.0):.1f}, {cw.get('Roads', 1.0):.1f}]"
 
         badge = '<span class="badge badge-ready">🌟 Core</span>' if idx < 3 else '<span class="badge" style="background: #F5F3FF; color: #7C3AED; border: 1px solid #DDD6FE;">👥 Custom</span>'
 
@@ -137,6 +151,7 @@ def render_leaderboard_page():
             <td style="padding: 12px 10px; color: #334155; font-size: 0.88rem; font-weight: 600;">{m['sensor']}<br><span style="color: #2563EB;">{m.get('native_gsd_m', 1.0)}m GSD</span></td>
             <td style="padding: 12px 10px; color: #1D4ED8; font-weight: 800; font-family: 'JetBrains Mono', monospace;">{oa:.1f}%</td>
             <td style="padding: 12px 10px; color: #059669; font-weight: 700; font-family: 'JetBrains Mono', monospace;">{miou:.1f}%</td>
+            <td style="padding: 12px 10px; color: #6D28D9; font-weight: 700; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem;">{cw_str}</td>
             <td style="padding: 12px 8px; color: #0284C7; font-weight: 600;">{ious.get('Water', 0.0):.1f}%</td>
             <td style="padding: 12px 8px; color: #16A34A; font-weight: 600;">{ious.get('Vegetation', 0.0):.1f}%</td>
             <td style="padding: 12px 8px; color: #DC2626; font-weight: 600;">{ious.get('Built-up', 0.0):.1f}%</td>
@@ -147,14 +162,15 @@ def render_leaderboard_page():
 
     st.markdown(f"""
     <div style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: 14px; overflow-x: auto; box-shadow: 0 2px 8px rgba(15,23,42,0.04);">
-        <table style="width: 100%; border-collapse: collapse; font-size: 1.02rem; text-align: left; min-width: 980px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 1.02rem; text-align: left; min-width: 1040px;">
             <thead>
                 <tr style="background: #F8FAFC; border-bottom: 2px solid #CBD5E1;">
-                    <th style="padding: 14px 12px; color: #475569; font-weight: 800;">Tier</th>
+                    <th style="padding: 14px 12px; color: #475569; font-weight: 800;">Category</th>
                     <th style="padding: 14px 14px; color: #0F172A; font-weight: 800;">Model & Architecture</th>
                     <th style="padding: 14px 12px; color: #475569; font-weight: 800;">Sensor / GSD</th>
                     <th style="padding: 14px 12px; color: #1D4ED8; font-weight: 800;">Overall Acc.</th>
                     <th style="padding: 14px 12px; color: #059669; font-weight: 800;">Mean IoU</th>
+                    <th style="padding: 14px 12px; color: #6D28D9; font-weight: 800;">Trained Weights<br><span style="font-size: 0.72rem; color: #475569;">[W, V, B, U, R]</span></th>
                     <th style="padding: 14px 10px; color: #0284C7; font-weight: 800;">Water</th>
                     <th style="padding: 14px 10px; color: #16A34A; font-weight: 800;">Vegetation</th>
                     <th style="padding: 14px 10px; color: #DC2626; font-weight: 800;">Built-up</th>

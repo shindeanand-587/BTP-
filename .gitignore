@@ -28,6 +28,8 @@ outputs/*.geojson
 # Checkpoint binaries (>100MB blocked by GitHub)
 checkpoints/*.pth
 !checkpoints/segformer_best.pth
+!checkpoints/best_model.pth
+!checkpoints/unet_best.pth
 checkpoints/*.pt
 checkpoints/*.bin
 teammate_checkpoints/*.pth

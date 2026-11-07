@@ -328,6 +328,9 @@ def register_github_model_entry(
                 "Water": 45.0, "Vegetation": 68.0, "Barren Land": 15.0, "Built-up": 72.0, "Roads": 65.0
             })
         },
+        "class_weights": meta.get("class_weights", {
+            "Water": 1.0, "Vegetation": 1.0, "Barren Land": 1.0, "Built-up": 1.0, "Roads": 1.0
+        }),
         "compatibility": {
             "native_bands": [bands_num],
             "allow_rgb_adaptation": True,
@@ -338,3 +341,4 @@ def register_github_model_entry(
 
     save_dynamic_model(model_entry)
     return model_entry
+

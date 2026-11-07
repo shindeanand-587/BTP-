@@ -92,11 +92,13 @@ def render_comparison_page():
         cols = st.columns(len(comp_results))
         for idx, res in enumerate(comp_results):
             m = res["model_info"]
+            cw = m.get("class_weights", {"Water": 1.0, "Vegetation": 1.0, "Barren Land": 1.0, "Built-up": 1.0, "Roads": 1.0})
             with cols[idx]:
                 st.markdown(f"""
                 <div style="background: #FFFFFF; padding: 12px 16px; border-radius: 10px; margin-bottom: 10px; border-top: 4px solid #2563EB; border-left: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; box-shadow: 0 1px 3px rgba(15,23,42,0.04);">
                     <div style="font-weight: 700; color: #0F172A; font-size: 1.0rem;">{m['display_name']}</div>
                     <div style="color: #64748B; font-size: 0.85rem; margin-top: 2px;">{m['architecture']} • <b>{res['duration']:.2f}s latency</b></div>
+                    <div style="font-size: 0.80rem; color: #6D28D9; margin-top: 4px; font-family: 'JetBrains Mono', monospace; font-weight: 600;">⚖️ Weights: [W:{cw.get('Water', 1.0):.1f}, V:{cw.get('Vegetation', 1.0):.1f}, B:{cw.get('Barren Land', 1.0):.1f}, U:{cw.get('Built-up', 1.0):.1f}, R:{cw.get('Roads', 1.0):.1f}]</div>
                 </div>
                 """, unsafe_allow_html=True)
                 
@@ -156,6 +158,9 @@ def render_comparison_page():
             oa_str = f"{metrics.get('overall_accuracy', 80.0):.2f}%" if metrics.get('overall_accuracy') else "N/A"
             miou_str = f"{metrics.get('macro_miou', 50.0):.2f}%" if metrics.get('macro_miou') else "N/A"
 
+            cw = m.get("class_weights", {"Water": 1.0, "Vegetation": 1.0, "Barren Land": 1.0, "Built-up": 1.0, "Roads": 1.0})
+            cw_str = f"[{cw.get('Water', 1.0):.1f}, {cw.get('Vegetation', 1.0):.1f}, {cw.get('Barren Land', 1.0):.1f}, {cw.get('Built-up', 1.0):.1f}, {cw.get('Roads', 1.0):.1f}]"
+
             water_area = [c["area_km2"] for c in dist["classes"] if c["class_id"] == 0][0]
             road_area = [c["area_km2"] for c in dist["classes"] if c["class_id"] == 4][0]
             built_area = [c["area_km2"] for c in dist["classes"] if c["class_id"] == 3][0]
@@ -169,6 +174,7 @@ def render_comparison_page():
                 <td style="padding: 12px 14px; font-weight: 700; color: #0F172A;">{m['display_name']}<br><span style="font-size: 0.82rem; color: #64748B; font-weight: 500;">{m['architecture']}</span></td>
                 <td style="padding: 12px 12px; color: #1D4ED8; font-weight: 700;">{oa_str}</td>
                 <td style="padding: 12px 12px; color: #059669; font-weight: 700;">{miou_str}</td>
+                <td style="padding: 12px 12px; color: #6D28D9; font-weight: 700; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem;">{cw_str}</td>
                 <td style="padding: 12px 12px; color: #0284C7; font-weight: 600;">{water_str}</td>
                 <td style="padding: 12px 12px; color: #D97706; font-weight: 600;">{road_str}</td>
                 <td style="padding: 12px 12px; color: #DC2626; font-weight: 600;">{built_str}</td>
@@ -184,6 +190,7 @@ def render_comparison_page():
                         <th style="padding: 14px 16px; color: #0F172A; font-weight: 800;">Model</th>
                         <th style="padding: 14px 14px; color: #1D4ED8; font-weight: 800;">Overall Acc.</th>
                         <th style="padding: 14px 14px; color: #059669; font-weight: 800;">Mean IoU</th>
+                        <th style="padding: 14px 14px; color: #6D28D9; font-weight: 800;">Trained Weights<br><span style="font-size: 0.72rem; color: #475569;">[W, V, B, U, R]</span></th>
                         <th style="padding: 14px 14px; color: #0284C7; font-weight: 800;">Water</th>
                         <th style="padding: 14px 14px; color: #D97706; font-weight: 800;">Roads</th>
                         <th style="padding: 14px 14px; color: #DC2626; font-weight: 800;">Built-up</th>

@@ -335,6 +335,7 @@ def render_prediction_page():
         if selected_model_id not in valid_ids and len(valid_ids) > 0:
             selected_model_id = valid_ids[0]
         m_rec = get_model_by_id(selected_model_id) or all_models[0]
+        cw = m_rec.get("class_weights", {"Water": 1.0, "Vegetation": 1.0, "Barren Land": 1.0, "Built-up": 1.0, "Roads": 1.0})
         with col_sel_model:
             st.markdown(f"""
             <div style="background: #EFF6FF; border: 1.5px solid #93C5FD; border-radius: 12px; padding: 14px 20px;">
@@ -344,6 +345,9 @@ def render_prediction_page():
                 </div>
                 <div style="font-size: 1.0rem; color: #334155; margin-top: 4px; font-weight: 600;">
                     💡 <b>Diagnostic Rationale:</b> {rec['rationale']}
+                </div>
+                <div style="font-size: 0.88rem; color: #4338CA; margin-top: 8px; font-weight: 700; background: #EEF2FF; padding: 5px 12px; border-radius: 8px; border: 1px solid #C7D2FE;">
+                    ⚖️ <b>Trained Class Weights:</b> 💧 Water: {cw.get('Water', 1.0):.1f}× | 🌿 Veg: {cw.get('Vegetation', 1.0):.1f}× | 🏜️ Barren: {cw.get('Barren Land', 1.0):.1f}× | 🏢 Built-up: {cw.get('Built-up', 1.0):.1f}× | 🛣️ Roads: {cw.get('Roads', 1.0):.1f}×
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -358,6 +362,13 @@ def render_prediction_page():
                 index=def_idx,
                 label_visibility="collapsed"
             )
+            m_sel = get_model_by_id(selected_model_id) or all_models[0]
+            cw = m_sel.get("class_weights", {"Water": 1.0, "Vegetation": 1.0, "Barren Land": 1.0, "Built-up": 1.0, "Roads": 1.0})
+            st.markdown(f"""
+            <div style="font-size: 0.88rem; color: #475569; margin-top: 6px; font-weight: 700; background: #F8FAFC; padding: 5px 12px; border-radius: 8px; border: 1px solid #E2E8F0;">
+                ⚖️ <b>Trained Class Weights:</b> 💧 Water: {cw.get('Water', 1.0):.1f}× | 🌿 Veg: {cw.get('Vegetation', 1.0):.1f}× | 🏜️ Barren: {cw.get('Barren Land', 1.0):.1f}× | 🏢 Built-up: {cw.get('Built-up', 1.0):.1f}× | 🛣️ Roads: {cw.get('Roads', 1.0):.1f}×
+            </div>
+            """, unsafe_allow_html=True)
 
     with col_run_btn:
         run_prediction = st.button("🚀 Run Prediction", type="primary", use_container_width=True)
@@ -529,6 +540,88 @@ def render_prediction_page():
             for w in warnings:
                 st.warning(f"ℹ️ {w}")
 
+        # ---------------------------------------------------------------------
+        # Dynamic Class Weight Sensitivity Studio
+        # ---------------------------------------------------------------------
+        trained_cw = m_info.get("class_weights", {"Water": 1.0, "Vegetation": 1.0, "Barren Land": 1.0, "Built-up": 1.0, "Roads": 1.0})
+        def_w = float(trained_cw.get("Water", 1.0))
+        def_v = float(trained_cw.get("Vegetation", 1.0))
+        def_b = float(trained_cw.get("Barren Land", 1.0))
+        def_u = float(trained_cw.get("Built-up", 1.0))
+        def_r = float(trained_cw.get("Roads", 1.0))
+
+        # Check if user requested a reset
+        if st.session_state.get("do_reset_weights", False):
+            st.session_state["cw_slider_water"] = def_w
+            st.session_state["cw_slider_veg"] = def_v
+            st.session_state["cw_slider_barren"] = def_b
+            st.session_state["cw_slider_built"] = def_u
+            st.session_state["cw_slider_roads"] = def_r
+            st.session_state["do_reset_weights"] = False
+
+        with st.expander("⚖️ Interactive Class Weight Sensitivity Studio (Dynamic Real-Time Rebalancing)", expanded=False):
+            st.markdown("""
+            <div style="font-size: 0.95rem; color: #475569; margin-bottom: 12px; line-height: 1.5;">
+                Fine-tune individual class probability multipliers below to dynamically rebalance classification boundaries and observe how land cover distribution shifts in real-time.
+                <br><span style="color: #059669; font-weight: 700;">🔒 Guaranteed Model Safety:</span> Base neural network parameters and default model weights remain completely untouched. Adjustments are applied dynamically to class probability maps during this session.
+            </div>
+            """, unsafe_allow_html=True)
+
+            c_btn, c_stat = st.columns([1.6, 3.4])
+            with c_btn:
+                if st.button("🔄 Reset to Model Defaults", key="reset_cw_btn"):
+                    st.session_state["do_reset_weights"] = True
+                    st.rerun()
+
+            sw1, sw2, sw3, sw4, sw5 = st.columns(5)
+            with sw1:
+                cur_w = st.slider("💧 Water", min_value=0.2, max_value=3.0, value=st.session_state.get("cw_slider_water", def_w), step=0.1, key="cw_slider_water")
+            with sw2:
+                cur_v = st.slider("🌿 Vegetation", min_value=0.2, max_value=3.0, value=st.session_state.get("cw_slider_veg", def_v), step=0.1, key="cw_slider_veg")
+            with sw3:
+                cur_b = st.slider("🏜️ Barren Land", min_value=0.2, max_value=3.0, value=st.session_state.get("cw_slider_barren", def_b), step=0.1, key="cw_slider_barren")
+            with sw4:
+                cur_u = st.slider("🏢 Built-up", min_value=0.2, max_value=3.0, value=st.session_state.get("cw_slider_built", def_u), step=0.1, key="cw_slider_built")
+            with sw5:
+                cur_r = st.slider("🛣️ Roads", min_value=0.2, max_value=3.0, value=st.session_state.get("cw_slider_roads", def_r), step=0.1, key="cw_slider_roads")
+
+            is_custom = (
+                abs(cur_w - def_w) > 0.05 or
+                abs(cur_v - def_v) > 0.05 or
+                abs(cur_b - def_b) > 0.05 or
+                abs(cur_u - def_u) > 0.05 or
+                abs(cur_r - def_r) > 0.05
+            )
+
+            with c_stat:
+                if is_custom:
+                    st.markdown("""
+                    <div style="background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 8px; padding: 6px 14px; color: #92400E; font-size: 0.88rem; font-weight: 700; margin-top: 2px;">
+                        🧪 Custom Simulation Active — Dynamic probability reweighting applied. Default models remain untouched.
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div style="background: #ECFDF5; border: 1px solid #10B981; border-radius: 8px; padding: 6px 14px; color: #065F46; font-size: 0.88rem; font-weight: 700; margin-top: 2px;">
+                        🔒 Default Model Weights Active ({m_info['display_name']}) — [W: {def_w:.1f}× | V: {def_v:.1f}× | B: {def_b:.1f}× | U: {def_u:.1f}× | R: {def_r:.1f}×]
+                    </div>
+                    """, unsafe_allow_html=True)
+
+        if is_custom and prob_map is not None:
+            w_arr = np.array([cur_w, cur_v, cur_b, cur_u, cur_r], dtype=np.float32)
+            weighted_probs = prob_map * w_arr[:, None, None]
+            dynamic_pred_mask = np.argmax(weighted_probs, axis=0).astype(np.uint8)
+            if (res["pred_mask"] == 255).any():
+                dynamic_pred_mask[res["pred_mask"] == 255] = 255
+            dynamic_color_mask = create_color_mask(dynamic_pred_mask)
+            dynamic_dist = compute_class_distribution(dynamic_pred_mask, bundle.resolution)
+        else:
+            dynamic_pred_mask = res["pred_mask"]
+            dynamic_color_mask = res["color_mask"]
+            dynamic_dist = res["distribution"]
+
+        dist = dynamic_dist
+
         # Top KPI Cards
         kpi1, kpi2, kpi3, kpi4 = st.columns(4)
         with kpi1:
@@ -597,7 +690,7 @@ def render_prediction_page():
         st.markdown("<div style='height: 14px;'></div>", unsafe_allow_html=True)
 
         display_rgb = prepare_smooth_display_image(bundle.rgb_preview)
-        display_color_mask = prepare_smooth_display_image(res["color_mask"])
+        display_color_mask = prepare_smooth_display_image(dynamic_color_mask)
 
         # =====================================================================
         # PERSPECTIVE 1: Road Network & Centerlines (User's Core Requirement)
@@ -631,7 +724,7 @@ def render_prediction_page():
                     dim_bg = st.checkbox("Dim Satellite Background", value=False, help="Uncheck to view full optical scene with maximum contrast.")
                     road_intensity = st.slider("Road Highlight Intensity (%):", min_value=0, max_value=100, value=35, step=5) / 100.0
 
-                # Compute active road corridors dynamically adapting to sensitivity slider
+                # Compute active road corridors dynamically adapting to sensitivity slider and class weights
                 gsd_val = getattr(bundle, "resolution", 1.24) or 1.24
                 if not isinstance(gsd_val, (int, float, tuple)):
                     gsd_val = 1.24
@@ -639,7 +732,8 @@ def render_prediction_page():
                 v_tot_km = getattr(bundle, "total_vector_length_km", None)
                 is_vec_active = getattr(bundle, "is_vector", False)
                 road_prob = prob_map[4]
-                dynamic_road_mask = (road_prob >= road_prob_thresh)
+                effective_road_prob = np.clip(road_prob * (cur_r / max(0.1, def_r)), 0.0, 1.0)
+                dynamic_road_mask = (dynamic_pred_mask == 4) | (effective_road_prob >= road_prob_thresh)
                 active_road_corridors = extract_actionable_road_corridors(
                     dynamic_road_mask,
                     gsd_m=gsd_val,
@@ -807,7 +901,7 @@ def render_prediction_page():
                     horizontal=False
                 )
 
-                builtup_binary = (res["pred_mask"] == 3)
+                builtup_binary = (dynamic_pred_mask == 3)
                 smooth_builtup_binary = prepare_smooth_display_image((builtup_binary * 255).astype(np.uint8)) > 128
 
                 if "Regularized Building Footprints" in b_mode and building_footprints.get("has_buildings"):
@@ -889,7 +983,7 @@ def render_prediction_page():
                     horizontal=False
                 )
 
-                veg_binary = (res["pred_mask"] == 1)
+                veg_binary = (dynamic_pred_mask == 1)
                 smooth_veg_binary = prepare_smooth_display_image((veg_binary * 255).astype(np.uint8)) > 128
 
                 if "Core Urban Parks" in veg_mode and veg_canopy.get("has_vegetation"):
@@ -982,7 +1076,7 @@ def render_prediction_page():
                     horizontal=False
                 )
 
-                barren_binary = (res["pred_mask"] == 2)
+                barren_binary = (dynamic_pred_mask == 2)
                 smooth_barren_binary = prepare_smooth_display_image((barren_binary * 255).astype(np.uint8)) > 128
 
                 if "All Developable Lots" in barren_mode and barren_parcels.get("has_barren"):
@@ -1068,7 +1162,7 @@ def render_prediction_page():
             col_v, col_m = st.columns([1.18, 1.0], gap="large")
 
             with col_v:
-                water_binary = (res["pred_mask"] == 0)
+                water_binary = (dynamic_pred_mask == 0)
                 smooth_water_binary = prepare_smooth_display_image((water_binary * 255).astype(np.uint8)) > 128
 
                 # Base spotlight on water
@@ -1311,7 +1405,7 @@ def render_prediction_page():
         d_col1, d_col2, d_col3 = st.columns(3)
 
         with d_col1:
-            blended_full = create_blended_overlay(bundle.rgb_preview, res["color_mask"], alpha=0.55)
+            blended_full = create_blended_overlay(bundle.rgb_preview, dynamic_color_mask, alpha=0.55)
             png_buf = io.BytesIO()
             Image.fromarray(blended_full).save(png_buf, format="PNG")
             st.download_button(
@@ -1324,7 +1418,7 @@ def render_prediction_page():
 
         with d_col2:
             if bundle.is_georeferenced and bundle.transform and bundle.crs:
-                geotiff_bytes = export_prediction_geotiff(res["pred_mask"], bundle.transform, bundle.crs)
+                geotiff_bytes = export_prediction_geotiff(dynamic_pred_mask, bundle.transform, bundle.crs)
                 st.download_button(
                     "🛰️ Download Georeferenced Mask (GeoTIFF)",
                     data=geotiff_bytes,
@@ -1334,7 +1428,7 @@ def render_prediction_page():
                 )
             else:
                 mask_png_buf = io.BytesIO()
-                Image.fromarray(res["color_mask"]).save(mask_png_buf, format="PNG")
+                Image.fromarray(dynamic_color_mask).save(mask_png_buf, format="PNG")
                 st.download_button(
                     "🎨 Download Class Mask (PNG)",
                     data=mask_png_buf.getvalue(),
@@ -1349,6 +1443,14 @@ def render_prediction_page():
                 "input_scene": bundle.filename,
                 "model_used": m_info["display_name"],
                 "model_id": m_info["id"],
+                "active_class_weights": {
+                    "Water": float(cur_w),
+                    "Vegetation": float(cur_v),
+                    "Barren Land": float(cur_b),
+                    "Built-up": float(cur_u),
+                    "Roads": float(cur_r)
+                },
+                "is_custom_simulation": is_custom,
                 "execution_duration_sec": dur,
                 "is_georeferenced": bundle.is_georeferenced,
                 "crs": bundle.crs,
