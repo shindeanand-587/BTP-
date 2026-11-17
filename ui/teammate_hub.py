@@ -294,23 +294,198 @@ def render_teammate_hub_page():
                             st.toast(f"Removed model {m['display_name']}", icon="🗑️")
                             st.rerun()
 
-        # Instructions card for teammates
+        # Quick reference card
         st.markdown("""
         <div style="background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 12px; padding: 16px 20px; margin-top: 20px;">
             <div style="font-weight: 700; color: #1E293B; font-size: 0.98rem; margin-bottom: 6px;">
-                💡 Recommended GitHub Repository Structure for Friends:
+                💡 Quick Repository Checklist:
             </div>
             <div style="font-size: 0.84rem; color: #475569; line-height: 1.5;">
-                Your friends can structure their repo with their model weights and an optional <code>model_config.json</code> for instant 1-click auto-configuration:
-            </div>
-            <pre style="background: #0F172A; color: #E2E8F0; padding: 10px 14px; border-radius: 8px; font-size: 0.78rem; margin-top: 8px;">
-my-urban-model-repo/
-├── model_weights.pth
-├── model_config.json  (optional)
-└── README.md</pre>
-            <div style="font-size: 0.82rem; color: #64748B; margin-top: 8px;">
-                <b>Example <code>model_config.json</code>:</b><br>
-                <code>{"display_name": "HRNet-W48 (SpaceNet Roads)", "architecture": "HRNet-W48 Feature Network", "overall_accuracy": 84.5}</code>
+                • <b>Option 1:</b> <code>model.pt</code> (TorchScript — graph + weights, no code required)<br>
+                • <b>Option 2:</b> <code>adapter.py</code> + <code>weights.pth</code> (Custom PyTorch)<br>
+                • <b>Config:</b> <code>model_config.json</code> for 1-click auto-registration<br>
+                • <i>See full developer guide below for copy-paste code snippets.</i>
             </div>
         </div>
         """, unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # Comprehensive Developer Integration Guidelines
+    # -------------------------------------------------------------------------
+    st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📘 Developer Guidelines: How Teammates Can Export & Package Models</div>', unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="background: #EFF6FF; border: 1.5px solid #93C5FD; border-radius: 12px; padding: 18px 22px; margin-bottom: 20px;">
+        <div style="font-weight: 800; color: #1D4ED8; font-size: 1.12rem; margin-bottom: 6px;">
+            💡 Why isn't a raw <code>.pth</code> file alone enough in PyTorch?
+        </div>
+        <div style="font-size: 0.95rem; color: #1E293B; line-height: 1.6;">
+            A raw <code>.pth</code> state dictionary created via <code>torch.save(model.state_dict())</code> contains <b>only numerical weight tensors</b>. It contains <b>no Python class definitions</b>, no computational graph, and no <code>forward()</code> method. To execute arbitrary complex neural networks (such as HRNet, Swin-Transformer, ConvNeXt, DeepLabV3+, or custom encoders) flawlessly, the platform supports <b>3 approved packaging patterns</b> via GitHub:
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    tab_ts, tab_py, tab_json, tab_spec = st.tabs([
+        "⭐ Option 1: TorchScript (.pt) [Recommended: Zero Code Dependencies]",
+        "🐍 Option 2: Python Script (adapter.py / model.py)",
+        "⚙️ Option 3: model_config.json Schema",
+        "🎯 Input/Output Contracts & 5-Class Index Mapping"
+    ])
+
+    with tab_ts:
+        st.markdown("""
+        ### ⭐ Option 1: Standalone TorchScript (`model.pt`)
+        **Best for:** Complex models (HRNet, Swin, Transformers) where you want guaranteed smooth execution without dependency conflicts.
+        
+        TorchScript compiles the entire neural network computational graph, forward pass, and weights into a single standalone binary. The platform loads it with `torch.jit.load()` without needing any external Python files.
+
+        **Export your model in 3 lines of code (run in your training environment):**
+        """)
+        st.code("""
+import torch
+
+# 1. Load your trained model in eval mode
+model = MyCustomArchitecture(num_classes=5)
+model.load_state_dict(torch.load("best_model.pth", map_location="cpu"))
+model.eval()
+
+# 2. Trace with a dummy input tile (B=1, C=3, H=512, W=512)
+dummy_tile = torch.randn(1, 3, 512, 512)
+traced_model = torch.jit.trace(model, dummy_tile)
+
+# 3. Save as standalone TorchScript binary
+traced_model.save("model.pt")
+print("✅ Saved standalone model.pt successfully!")
+        """, language="python")
+
+        st.markdown("""
+        **Repository Structure:**
+        ```text
+        my-model-repo/
+        ├── model.pt               # Standalone TorchScript binary
+        ├── model_config.json      # Metadata & metrics (optional)
+        └── README.md
+        ```
+        """)
+
+    with tab_py:
+        st.markdown("""
+        ### 🐍 Option 2: Python Adapter Script (`adapter.py` or `model.py`)
+        **Best for:** Custom PyTorch models where you keep your Python architecture files alongside standard `.pth` weights.
+
+        Include an `adapter.py` in your GitHub repository containing a `get_model(weights_path)` factory function. The platform dynamically imports this script and passes input tiles through your model.
+        """)
+        st.code("""
+# adapter.py (in your GitHub repository)
+import torch
+import torch.nn as nn
+from my_architecture import MyUrbanSegmenter  # Import your model class
+
+def get_model(weights_path=None):
+    \"\"\"
+    Standard factory function expected by the platform.
+    Returns: An initialized nn.Module in eval mode with weights loaded.
+    \"\"\"
+    model = MyUrbanSegmenter(num_classes=5)
+    
+    if weights_path:
+        ckpt = torch.load(weights_path, map_location="cpu", weights_only=False)
+        state_dict = ckpt.get("model_state_dict") or ckpt.get("state_dict") or ckpt.get("model_state") or ckpt
+        # Clean potential 'module.' prefixes from DataParallel / DDP training
+        cleaned = {k.replace("module.", ""): v for k, v in state_dict.items()}
+        model.load_state_dict(cleaned, strict=False)
+        
+    model.eval()
+    return model
+        """, language="python")
+
+        st.markdown("""
+        **Repository Structure:**
+        ```text
+        my-model-repo/
+        ├── adapter.py             # Contains get_model(weights_path)
+        ├── my_architecture.py     # Your model architecture class definitions
+        ├── best_model.pth         # PyTorch weights file (<100MB for GitHub)
+        ├── model_config.json      # Metadata & metrics (optional)
+        └── README.md
+        ```
+        """)
+
+    with tab_json:
+        st.markdown("""
+        ### ⚙️ Option 3: `model_config.json` Specification
+        Placing a `model_config.json` in your repository root enables **instant 1-click auto-configuration** with verified metrics, class weights, and descriptions pre-populated:
+        """)
+        st.code("""
+{
+  "display_name": "HRNet-W48 (SpaceNet Roads)",
+  "author": "Teammate Name",
+  "architecture": "HRNet-W48 Feature Network",
+  "sensor": "3-Band Optical RGB",
+  "dataset_name": "SpaceNet Roads",
+  "native_gsd_m": 1.24,
+  "overall_accuracy": 84.5,
+  "macro_miou": 56.5,
+  "class_ious": {
+    "Water": 45.0,
+    "Vegetation": 68.0,
+    "Barren Land": 15.0,
+    "Built-up": 72.0,
+    "Roads": 82.5
+  },
+  "class_weights": {
+    "Water": 1.0,
+    "Vegetation": 1.0,
+    "Barren Land": 1.2,
+    "Built-up": 1.0,
+    "Roads": 1.5
+  },
+  "description": "High-resolution parallel multi-scale feature network preserving fine road corridors and intersection topology."
+}
+        """, language="json")
+
+    with tab_spec:
+        st.markdown("""
+        ### 🎯 Platform Input & Output Contracts
+
+        To ensure your model integrates seamlessly with all perspectives (Road Centerlines, Building Footprints, Land Cover Analytics):
+
+        #### 1. Input Tensor Contract
+        - **Shape:** `(B, C, H, W)` where `B=1`, `H=512`, `W=512` (the platform slices large satellite scenes into 512×512 tiles with 64px overlap).
+        - **Channels `C`:**
+          - `3` channels for standard RGB optical aerial/satellite imagery.
+          - `1` channel for Panchromatic/grayscale imagery.
+          - `8` channels for WorldView-3 Multispectral imagery.
+        - **Value Range:** Normalized floats in `[0.0, 1.0]`.
+
+        #### 2. Output Tensor Contract
+        - **Shape:** `(B, 5, H, W)` representing unnormalized logits or softmax probabilities.
+        - **Urban Class Index Mapping (Must Match Exactly):**
+          - **Class 0:** `Water` (Open sea, bays, creeks, reservoirs, canals)
+          - **Class 1:** `Vegetation` (Forests, mangroves, tree cover, parks, turf)
+          - **Class 2:** `Barren Land` (Rock quarries, bare excavation, open soil, exposed rock)
+          - **Class 3:** `Built-up` (Commercial towers, residential housing, informal settlements)
+          - **Class 4:** `Roads` (Expressways, arterial roads, highways, paved corridors, runways)
+
+        #### ⚠️ GitHub File Size Limit (<100MB)
+        GitHub strictly blocks files **larger than 100 MB**. If your checkpoint contains optimizer states making it >100 MB, strip them before committing:
+        ```python
+        ckpt = torch.load("checkpoint.pth", map_location="cpu")
+        state_only = {"model_state": ckpt.get("model_state_dict") or ckpt.get("state_dict") or ckpt}
+        torch.save(state_only, "best_model_stripped.pth")
+        ```
+        """)
+
+    # Download button for complete Markdown guide
+    guideline_path = os.path.join(BASE_DIR, "TEAMMATE_MODEL_GUIDELINES.md")
+    if os.path.exists(guideline_path):
+        with open(guideline_path, "r", encoding="utf-8") as gf:
+            guide_md_content = gf.read()
+        st.download_button(
+            "📥 Download Complete Developer Guidelines (TEAMMATE_MODEL_GUIDELINES.md)",
+            data=guide_md_content,
+            file_name="TEAMMATE_MODEL_GUIDELINES.md",
+            mime="text/markdown",
+            use_container_width=True
+        )

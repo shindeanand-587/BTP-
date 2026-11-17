@@ -13,8 +13,14 @@ import numpy as np
 from PIL import Image, ImageDraw
 Image.MAX_IMAGE_PIXELS = None
 from typing import Dict, Any, Tuple, Optional
-import rasterio
-from rasterio.transform import Affine
+try:
+    import rasterio
+    from rasterio.transform import Affine
+    HAS_RASTERIO = True
+except (ImportError, Exception):
+    rasterio = None
+    Affine = None
+    HAS_RASTERIO = False
 
 try:
     import shapefile
@@ -398,7 +404,7 @@ def load_image_from_bytes(file_bytes: bytes, filename: str) -> ImageInputBundle:
 
     is_tiff = ext in [".tif", ".tiff"]
 
-    if is_tiff:
+    if is_tiff and HAS_RASTERIO and rasterio is not None:
         try:
             with rasterio.open(io.BytesIO(file_bytes)) as ds:
                 raw_data = ds.read() # Shape: (C, H, W)
