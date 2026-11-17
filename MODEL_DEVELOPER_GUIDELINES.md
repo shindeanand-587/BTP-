@@ -1,13 +1,14 @@
-# 📘 Teammate & Collaborator Model Integration Guidelines
+# 📘 Model Developer & Integration Guidelines
 ## Unified Urban Feature Extraction AI Platform (v2)
+### Standardized Model Registration & Automated AI Packaging Protocol
 
-This document provides instructions, technical specifications, and copy-paste prompt templates for collaborators to package and export their custom-trained deep learning models so they can be registered on the Unified Urban Feature Extraction Platform via GitHub with 100% numerical fidelity.
+This document establishes the technical specifications, repository architecture, and automated AI packaging instructions for deploying deep learning models onto the Unified Urban Feature Extraction Platform via GitHub or local upload.
 
 ---
 
-## 🤖 Prompt for Your AI Agent (Copy & Paste Ready)
+## 🤖 Automated Packaging Specification for AI Coding Agents
 
-If you trained your model with an AI coding assistant (Cursor, Claude Code, ChatGPT, Antigravity, or Copilot), **copy the prompt below** and paste it into your AI assistant. It will inspect your training codebase and generate all required repository files automatically:
+When packaging custom-trained models using an AI coding assistant (**Cursor, Claude Code, Antigravity, ChatGPT, or GitHub Copilot**), copy the specification prompt below and paste it directly into your AI assistant. It will inspect your codebase and generate all required repository files automatically:
 
 ```text
 You are an expert PyTorch machine learning deployment engineer.
@@ -22,7 +23,7 @@ Please inspect my model architecture and training code, and generate all require
 2. "model_config.json":
    - Contains:
      - "display_name": Model Name (Dataset in parentheses) e.g. "HRNet-W48 (SpaceNet Roads)"
-     - "author": Contributor Name
+     - "author": Contributor Name / Institution
      - "architecture": Specific architecture name
      - "sensor": "3-Band Optical RGB" | "1-Band Panchromatic (2.5m)" | "8-Band WorldView-3 (1.24m)"
      - "dataset_name": Name of training dataset
@@ -58,36 +59,36 @@ Please write all these files now.
 
 ---
 
-## ❓ Why is a raw `.pth` file alone not enough in PyTorch?
+## ❓ Architectural Foundation: Why a raw `.pth` file alone is insufficient in PyTorch
 
-When you run `torch.save(model.state_dict(), "model.pth")`, PyTorch saves **only a dictionary of raw weight matrices (floating-point numbers)**. 
+When saving weights via `torch.save(model.state_dict(), "model.pth")`, PyTorch serializes **only an ordered dictionary of floating-point numerical weight tensors**.
 
 A raw `.pth` state dictionary contains:
-- ❌ **NO Python class definition** (e.g., `class HRNet(nn.Module): ...`)
-- ❌ **NO computational graph** (how layers connect, skip connections, attention heads)
-- ❌ **NO `forward()` method** defining how an input image is transformed into 5 urban class predictions
+- ❌ **No Python class definitions** (e.g., `class HRNet(nn.Module): ...`)
+- ❌ **No computational graph** (layer connectivity, skip paths, attention mechanisms)
+- ❌ **No `forward()` method** specifying execution flow from input tensors to output logits
 
-To execute a `.pth` state dictionary, PyTorch requires the exact Python code that defines the architecture. **This is why the GitHub Repository Import method is used**: it allows the platform to clone both your model's architecture definition AND your weights.
+To execute an arbitrary deep neural network in production, PyTorch requires the architecture's structural graph. **The GitHub Repository Integration method resolves this** by importing both the model's architecture definition and the trained weights simultaneously.
 
 ---
 
-## 🚀 The 3 Approved Integration Options
+## 🚀 The 3 Approved Deployment Architecture Options
 
-Choose the option that best fits your model setup:
+Choose the deployment architecture that best fits your model implementation:
 
 ### Option 1: Standalone TorchScript (`model.pt`) — ⭐ RECOMMENDED (Zero Code Dependencies)
-TorchScript compiles your entire model architecture graph, weights, and forward pass into a single binary. It runs on the platform without requiring any external Python files or libraries.
+TorchScript compiles the entire neural network computational graph, forward pass, and weights into a single binary. It executes on the platform with `torch.jit.load()` without requiring external Python scripts or library dependencies.
 
-**How to export from your training environment:**
+**Export Procedure (3 lines of Python):**
 ```python
 import torch
 
-# 1. Load your trained model in evaluation mode
+# 1. Load trained model in evaluation mode
 model = MyCustomArchitecture(num_classes=5)
 model.load_state_dict(torch.load("best_model.pth", map_location="cpu"))
 model.eval()
 
-# 2. Trace with a dummy input tile (B=1, C=3, H=512, W=512)
+# 2. Trace with a canonical input tile (B=1, C=3, H=512, W=512)
 dummy_tile = torch.randn(1, 3, 512, 512)
 traced_model = torch.jit.trace(model, dummy_tile)
 
@@ -100,31 +101,29 @@ print("✅ Saved standalone model.pt successfully!")
 ```text
 my-model-repo/
 ├── model.pt               # Standalone TorchScript binary (graph + weights)
-├── preflight_test.py      # Verification script
-├── model_config.json      # Metadata & metrics (see schema below)
+├── preflight_test.py      # Automated verification test script
+├── model_config.json      # Metadata, preprocessing, & class weights
 └── README.md
 ```
 
 ---
 
-### Option 2: Python Adapter Script (`adapter.py` / `model.py`) — For Custom PyTorch Architectures
-If you prefer keeping your standard `.pth` weights file and Python source code, include an `adapter.py` or `model.py` in your repository with a `get_model()` factory function.
+### Option 2: Python Adapter Module (`adapter.py` / `model.py`) — For Custom PyTorch Architectures
+For custom research architectures retaining standard `.pth` weights and Python source definitions, provide an `adapter.py` with a standardized `get_model()` factory function.
 
-**Create `adapter.py` in your repo:**
+**Create `adapter.py` in your repository root:**
 ```python
 import torch
 import torch.nn as nn
-from my_network import MyComplexModel  # Import your architecture
+from my_network import MyComplexModel  # Import your architecture definition
 
 def get_model(weights_path=None):
     """
-    Standard factory function expected by the platform.
+    Standard factory function invoked dynamically by the platform.
     Returns: An initialized nn.Module in eval mode with weights loaded.
     """
-    # 1. Instantiate your architecture with 5 output classes
     model = MyComplexModel(num_classes=5)
     
-    # 2. Load weights if path is provided
     if weights_path:
         ckpt = torch.load(weights_path, map_location="cpu", weights_only=False)
         state_dict = ckpt.get("model_state_dict") or ckpt.get("state_dict") or ckpt.get("model_state") or ckpt
@@ -137,10 +136,9 @@ def get_model(weights_path=None):
 
 def preprocess(raw_np):
     """
-    Optional custom preprocessing hook.
+    Optional custom preprocessing hook for non-standard sensor pipelines.
     Returns: Normalized (1, C, H, W) torch.Tensor.
     """
-    # Custom normalization logic if your model differs from standard ImageNet
     tensor = torch.from_numpy(raw_np.astype("float32") / 255.0).unsqueeze(0)
     return tensor
 ```
@@ -149,32 +147,32 @@ def preprocess(raw_np):
 ```text
 my-model-repo/
 ├── adapter.py             # Contains get_model(weights_path)
-├── my_network.py          # Your model architecture class definition
+├── my_network.py          # PyTorch nn.Module architecture classes
 ├── best_model.pth         # PyTorch weights file (<100MB for GitHub)
-├── preflight_test.py      # Verification script
-├── model_config.json      # Metadata & metrics
+├── preflight_test.py      # Automated verification test script
+├── model_config.json      # Metadata, preprocessing, & class weights
 └── README.md
 ```
 
 ---
 
-### Option 3: Full Pickled PyTorch Model (`model.pth`)
-If you save the full model object instead of just the state dictionary:
+### Option 3: Full Pickled PyTorch Object (`model.pth`)
+If your model is serialized as a complete object:
 ```python
 torch.save(model, "full_model.pth")
 ```
-When imported along with your repo folder, the platform loads the entire model directly.
+When imported alongside your repository codebase, the platform dynamically restores the full `nn.Module` instance.
 
 ---
 
 ## 📋 The `model_config.json` Specification
 
-Placing a `model_config.json` in your repository root enables **1-click automatic registration** with verified metrics, class weights, and descriptions pre-populated:
+Placing a `model_config.json` in your repository root enables **automated 1-click registration** with verified benchmark metrics, class weights, and preprocessing pre-populated:
 
 ```json
 {
   "display_name": "HRNet-W48 (SpaceNet Roads)",
-  "author": "Jane Doe",
+  "author": "Research Contributor",
   "architecture": "HRNet-W48 Feature Network",
   "sensor": "3-Band Optical RGB",
   "dataset_name": "SpaceNet Roads",
@@ -202,7 +200,7 @@ Placing a `model_config.json` in your repository root enables **1-click automati
     "tile_size": 512,
     "overlap": 64
   },
-  "description": "High-resolution parallel multi-scale feature network preserving fine road corridors and intersection topology."
+  "description": "High-resolution multi-scale representation network preserving fine arterial corridors and intersection topology."
 }
 ```
 
@@ -210,19 +208,17 @@ Placing a `model_config.json` in your repository root enables **1-click automati
 
 ## 🎯 Platform Input & Output Contracts
 
-To ensure your model integrates seamlessly with all perspectives (Road Centerlines, Building Footprints, Land Cover Analytics):
-
 ### 1. Input Tensor Contract
 - **Shape:** `(B, C, H, W)` where `B=1`, `H=512`, `W=512` (the platform slices large satellite scenes into 512×512 tiles with 64px overlap).
 - **Channels `C`:**
   - `3` channels for standard RGB optical aerial/satellite imagery.
   - `1` channel for Panchromatic/grayscale imagery.
   - `8` channels for WorldView-3 Multispectral imagery.
-- **Value Range:** Normalized floats in `[0.0, 1.0]` (or ImageNet standardized).
+- **Value Range:** Normalized floats in `[0.0, 1.0]` or ImageNet standardized.
 
 ### 2. Output Tensor Contract
 - **Shape:** `(B, 5, H, W)` representing unnormalized logits or softmax probabilities.
-- **Urban Class Index Mapping (Must Match Exactly):**
+- **Urban Class Index Mapping (Exact Alignment Required):**
   - **Class 0:** `Water` (Open sea, bays, creeks, reservoirs, canals)
   - **Class 1:** `Vegetation` (Forests, mangroves, tree cover, parks, turf)
   - **Class 2:** `Barren Land` (Rock quarries, bare excavation, open soil, exposed rock)
@@ -231,11 +227,10 @@ To ensure your model integrates seamlessly with all perspectives (Road Centerlin
 
 ---
 
-## 💡 Important GitHub File Size Tip
+## 💡 GitHub File Size Optimization (<100MB)
 - GitHub strictly rejects individual files **larger than 100 MB**.
-- If your `.pth` checkpoint is >100 MB because it contains optimizer and scheduler states, strip them before committing:
+- Checkpoints containing optimizer, scaler, or scheduler states can be stripped to reduce size from ~160MB to ~50MB:
 ```python
-# Strip optimizer to reduce file size from ~160MB to ~50MB:
 ckpt = torch.load("checkpoint.pth", map_location="cpu")
 state_only = {"model_state": ckpt.get("model_state_dict") or ckpt.get("state_dict") or ckpt}
 torch.save(state_only, "best_model_stripped.pth")
@@ -245,7 +240,7 @@ torch.save(state_only, "best_model_stripped.pth")
 
 ## 🧪 Preflight Verification Script (`preflight_test.py`)
 
-Include this script in your repository. When our platform imports your repository, it runs this script to certify **100% numerical fidelity**:
+Include this script in your repository. When our platform imports the repository, it executes this test to certify **100% numerical training-inference parity**:
 
 ```python
 import sys
@@ -253,12 +248,10 @@ import torch
 import numpy as np
 
 try:
-    # Test loading
     from adapter import get_model
     model = get_model()
     model.eval()
 
-    # Test forward pass with synthetic tile
     dummy_tile = torch.randn(1, 3, 512, 512)
     with torch.no_grad():
         out = model(dummy_tile)

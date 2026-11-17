@@ -1,8 +1,8 @@
 """
 inference/github_importer.py
 ----------------------------
-Automated GitHub Repository Importer & Inspection Engine for Teammates' Models.
-Allows teammates/collaborators to input a GitHub repository URL, automatically clones
+Automated GitHub Repository Importer & Inspection Engine for Contributed & Custom Models.
+Allows researchers and collaborators to input a GitHub repository URL, automatically clones
 or downloads the repo archive, scans for model weights and configuration, and registers
 the model so it is instantly usable across Feature Extraction, Comparison, and Leaderboard.
 """
@@ -239,7 +239,7 @@ def inspect_repository(repo_dir: str, parsed: Dict[str, str]) -> Dict[str, Any]:
             preflight_status = f"NOTICE ({str(e)})"
 
     # Determine default model metadata (combining config JSON and heuristics)
-    owner = parsed.get("owner", "Teammate")
+    owner = parsed.get("owner", "Research Collaborator")
     repo = parsed.get("repo", "Model")
     clean_repo_name = repo.replace("-", " ").replace("_", " ").title()
 
@@ -326,7 +326,7 @@ def register_github_model_entry(
     display_name = meta["display_name"].strip()
     # Enforce dataset in bracket format
     if "(" not in display_name or ")" not in display_name:
-        dataset_str = meta.get("dataset_name", "Teammate Dataset")
+        dataset_str = meta.get("dataset_name", "Contributed Dataset")
         display_name = f"{display_name} ({dataset_str})"
 
     clean_id = re.sub(r'[^a-zA-Z0-9_]', '_', display_name.lower())[:24]

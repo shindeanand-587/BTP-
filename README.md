@@ -2,7 +2,7 @@
 
 **B.Tech Project II — Multi-Sensor Satellite Semantic Segmentation Platform**  
 **Study Area:** Mumbai Metropolitan Region (MMR), Maharashtra, India  
-**Collaborative Team:** Anand Shinde (Lead), Teammate 1 (Friend 1), Teammate 2 (Friend 2)  
+**Collaborative Research Team:** Anand Shinde (Project Lead), Research Collaborator 1, Research Collaborator 2  
 **Hardware Target:** NVIDIA GeForce RTX 4050 Laptop GPU (CUDA 12.4) with CPU fallback  
 
 ---
@@ -47,10 +47,10 @@ All models are unified into a centralized registry (`model_registry.py`). Models
 | `wv3_psms_segformer` | WorldView-3 Pan-Sharpened | Team Lead | SegFormer-B1 (8-ch) | WV-3 PS-MS (0.31m) | **74.20%** | **63.30%** | ✅ Ready |
 | `cartosat_pan_segformer`| Cartosat-1 PAN SegFormer | Team Lead | SegFormer-B1 (1-ch) | Cartosat-1 (2.5m) | **71.85%** | **50.11%** | ✅ Ready |
 | `sentinel2_ms_segformer`| Sentinel-2A SegFormer-B1 | Team Lead | SegFormer-B1 (4-ch) | Sentinel-2 (10m) | **68.42%** | **36.51%** | ✅ Ready |
-| `friend1_model_a` | HRNet Road Segmenter | Teammate 1 | HRNet-W48 | High-Res Optical | — | — | ⏳ Pending |
-| `friend1_model_b` | Swin Building Segmenter | Teammate 1 | Swin-T FPN | Optical Multispectral | — | — | ⏳ Pending |
-| `friend2_model_a` | ConvNeXt Land Cover | Teammate 2 | ConvNeXt-Base FPN | Multi-Sensor | — | — | ⏳ Pending |
-| `friend2_model_b` | PSPNet Boundary Refiner | Teammate 2 | PSPNet + Edge Loss | Cartosat + S2 Hybrid | — | — | ⏳ Pending |
+| `collaborator1_model_a` | HRNet Road Segmenter | Collaborator 1 | HRNet-W48 | High-Res Optical | — | — | ⏳ Pending |
+| `collaborator1_model_b` | Swin Building Segmenter | Collaborator 1 | Swin-T FPN | Optical Multispectral | — | — | ⏳ Pending |
+| `collaborator2_model_a` | ConvNeXt Land Cover | Collaborator 2 | ConvNeXt-Base FPN | Multi-Sensor | — | — | ⏳ Pending |
+| `collaborator2_model_b` | PSPNet Boundary Refiner | Collaborator 2 | PSPNet + Edge Loss | Cartosat + S2 Hybrid | — | — | ⏳ Pending |
 
 ---
 
@@ -144,4 +144,4 @@ To deploy this platform onto a shared laboratory server or cloud VM (Ubuntu/Debi
 
 - **No Fake Metrics:** Live uploads do not invent accuracy or IoU figures; pixel distributions are strictly labeled as predicted proportions.
 - **Zero Training Interference:** This deployment runs in inference-only mode (`torch.no_grad()`). No training loops, fine-tuning scripts, or weight updates are executed.
-- **Model Isolation:** Teammate models are integrated cleanly via the centralized registry without touching working adapters.
+- **Model Isolation:** Contributed models are integrated cleanly via the centralized registry without touching working adapters.

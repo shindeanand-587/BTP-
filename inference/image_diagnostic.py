@@ -26,7 +26,7 @@ def analyze_image_characteristics(bundle: ImageInputBundle) -> Dict[str, Any]:
     h, w = bundle.height, bundle.width
     is_geo = bundle.is_georeferenced
     res = bundle.resolution
-    gsd_m = abs(res[0]) if res else None
+    gsd_m = abs(res[0]) if isinstance(res, (tuple, list)) else (abs(res) if res is not None else None)
 
     # 1. Grayscale / Panchromatic check
     # Check if single band or if R==G==B across RGB channels
@@ -149,7 +149,7 @@ def analyze_image_characteristics(bundle: ImageInputBundle) -> Dict[str, Any]:
                 "fit_percent": 0,
                 "is_eligible": False,
                 "status": status,
-                "reason": "Model weights pending registration by teammate."
+                "reason": "Model weights pending registration by external contributor."
             }
             continue
 

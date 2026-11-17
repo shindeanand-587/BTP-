@@ -464,6 +464,64 @@ def load_image_from_bytes(file_bytes: bytes, filename: str) -> ImageInputBundle:
             # Fallback if rasterio encounters memory stream error
             pass
 
+    # Secondary robust reader for Multi-Band TIFF / GeoTIFF via tifffile (active under WDAC/cloud)
+    if ext in [".tif", ".tiff"]:
+        try:
+            import tifffile
+            tif_data = tifffile.imread(io.BytesIO(file_bytes))
+            if tif_data.ndim == 2:
+                h, w = tif_data.shape
+                c = 1
+                raw_arr = tif_data[np.newaxis, :, :].astype(np.float32)
+                p2 = np.percentile(tif_data, 2)
+                p98 = np.percentile(tif_data, 98)
+                norm_p = np.clip((tif_data - p2) / max(1e-5, p98 - p2), 0, 1)
+                p_8u = (norm_p * 255.0).astype(np.uint8)
+                rgb_preview = np.stack([p_8u, p_8u, p_8u], axis=-1)
+            elif tif_data.ndim == 3:
+                if tif_data.shape[2] in [1, 3, 4, 8, 12, 16]:
+                    h, w, c = tif_data.shape
+                    raw_arr = np.transpose(tif_data.astype(np.float32), (2, 0, 1))
+                else:
+                    c, h, w = tif_data.shape
+                    raw_arr = tif_data.astype(np.float32)
+
+                if c >= 8:  # WV-3 8-Band: Red=4, Green=2, Blue=1
+                    r_band, g_band, b_band = raw_arr[4], raw_arr[2], raw_arr[1]
+                elif c >= 3:
+                    r_band, g_band, b_band = raw_arr[0], raw_arr[1], raw_arr[2]
+                else:
+                    r_band = g_band = b_band = raw_arr[0]
+
+                rgb_stack = []
+                for b_img in [r_band, g_band, b_band]:
+                    p2 = np.percentile(b_img, 2)
+                    p98 = np.percentile(b_img, 98)
+                    norm_b = np.clip((b_img - p2) / max(1e-5, p98 - p2), 0, 1)
+                    rgb_stack.append((norm_b * 255.0).astype(np.uint8))
+                rgb_preview = np.stack(rgb_stack, axis=-1)
+            else:
+                raise ValueError("Unsupported TIFF dimensions")
+
+            return ImageInputBundle(
+                raw_array=raw_arr,
+                rgb_preview=rgb_preview,
+                channels=c,
+                height=h,
+                width=w,
+                dtype=str(tif_data.dtype),
+                file_format="geotiff",
+                is_georeferenced=False,
+                crs=None,
+                transform=None,
+                bounds=None,
+                resolution=(1.24, 1.24) if c == 8 else ((2.5, 2.5) if c == 1 else None),
+                nodata=None,
+                filename=filename
+            )
+        except Exception:
+            pass
+
     # Standard PIL reader for PNG, JPEG, or uncompressed TIFF
     pil_img = Image.open(io.BytesIO(file_bytes))
     mode = pil_img.mode

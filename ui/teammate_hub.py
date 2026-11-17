@@ -32,11 +32,11 @@ os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 
 def render_teammate_hub_page():
-    st.markdown('<div class="section-header" style="margin-top: 0;">👥 Teammate Model Hub & GitHub Repository Importer</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header" style="margin-top: 0;">📦 Model Registration & GitHub Deployment Engine</div>', unsafe_allow_html=True)
 
     st.markdown("""
     <div style="font-size: 1.0rem; color: #475569; margin-bottom: 22px; font-weight: 500; line-height: 1.5;">
-        Collaborators can paste their <b>GitHub repository link</b> below to automatically clone their repository, detect model weights & configurations, and seamlessly activate their models across <b>Feature Extraction</b>, <b>Multi-Model Comparison</b>, and the <b>Leaderboard</b>.
+        Researchers and collaborators can provide their <b>GitHub repository link</b> below to automatically clone their repository, detect model weights & configurations, run preflight verification, and seamlessly activate their models across <b>Feature Extraction</b>, <b>Multi-Model Comparison</b>, and the <b>Leaderboard</b>.
     </div>
     """, unsafe_allow_html=True)
 
@@ -176,7 +176,7 @@ def render_teammate_hub_page():
 
             with st.form("manual_weights_upload_form", clear_on_submit=False):
                 model_name = st.text_input("Model Display Name (include dataset in bracket):", placeholder="e.g. HRNet-W48 (SpaceNet Roads)")
-                owner_name = st.text_input("Author / Contributor:", placeholder="e.g. Teammate 1 / John")
+                owner_name = st.text_input("Author / Contributor:", placeholder="e.g. Anand Shinde / Collaborator A")
 
                 c_arch, c_sensor = st.columns(2)
                 with c_arch:
@@ -260,7 +260,7 @@ def render_teammate_hub_page():
                         st.rerun()
 
     with col_side:
-        st.markdown('<div style="font-size: 1.15rem; font-weight: 700; color: #0F172A; margin-bottom: 12px;">📋 Registered Teammate Models</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size: 1.15rem; font-weight: 700; color: #0F172A; margin-bottom: 12px;">📋 Registered Custom & Contributed Models</div>', unsafe_allow_html=True)
 
         t_models = get_teammate_models()
         if not t_models:
@@ -318,7 +318,7 @@ def render_teammate_hub_page():
     # Comprehensive Developer Integration Guidelines
     # -------------------------------------------------------------------------
     st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-    st.markdown('<div class="section-header">📘 Developer Guidelines: How Teammates Can Export & Package Models</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📘 Model Developer Integration Specification (Repository Standards & Automated Packaging)</div>', unsafe_allow_html=True)
 
     st.markdown("""
     <div style="background: #EFF6FF; border: 1.5px solid #93C5FD; border-radius: 12px; padding: 18px 22px; margin-bottom: 20px;">
@@ -332,19 +332,19 @@ def render_teammate_hub_page():
     """, unsafe_allow_html=True)
 
     tab_agent, tab_ts, tab_py, tab_json, tab_spec = st.tabs([
-        "🤖 AI Agent Master Prompt [Copy & Paste into AI]",
-        "⭐ Option 1: TorchScript (.pt) [Zero-Code Standalone]",
-        "🐍 Option 2: Python Script (adapter.py + weights)",
-        "⚙️ Option 3: model_config.json Schema",
-        "🎯 Input/Output Contracts & 5-Class Index Mapping"
+        "🤖 AI Agent Deployment Specification (Automated Packaging)",
+        "⭐ Option 1: TorchScript (.pt) [Standalone Graph + Weights]",
+        "🐍 Option 2: Python Adapter Module (adapter.py + weights)",
+        "⚙️ Option 3: model_config.json Architecture Schema",
+        "🎯 Input/Output Contracts & 5-Class Ground Truth Mapping"
     ])
 
     with tab_agent:
         st.markdown("""
-        ### 🤖 One-Click AI Agent Prompt for Your Friends
-        If your teammates trained their models using an AI coding assistant (**Cursor, Claude Code, Antigravity, ChatGPT, or GitHub Copilot**), they don't have to write any adapter or configuration by hand!
+        ### 🤖 Automated Packaging Specification for AI Coding Agents
+        If external researchers or collaborators developed their models using an AI coding assistant (**Cursor, Claude Code, Antigravity, ChatGPT, or GitHub Copilot**), the packaging process is fully automated.
         
-        **Tell them to copy the prompt below and paste it directly into their AI assistant:**
+        **Provide the exact specification below to an AI assistant to automatically generate all required repository files:**
         """)
         st.code("""You are an expert PyTorch machine learning deployment engineer.
 I need to package my trained deep learning model into a standalone GitHub repository so it can be imported and executed flawlessly on our Unified Urban Feature Extraction AI Platform.
@@ -478,7 +478,7 @@ def get_model(weights_path=None):
         st.code("""
 {
   "display_name": "HRNet-W48 (SpaceNet Roads)",
-  "author": "Teammate Name",
+  "author": "Research Collaborator",
   "architecture": "HRNet-W48 Feature Network",
   "sensor": "3-Band Optical RGB",
   "dataset_name": "SpaceNet Roads",
@@ -536,14 +536,14 @@ def get_model(weights_path=None):
         """)
 
     # Download button for complete Markdown guide
-    guideline_path = os.path.join(BASE_DIR, "TEAMMATE_MODEL_GUIDELINES.md")
+    guideline_path = os.path.join(BASE_DIR, "MODEL_DEVELOPER_GUIDELINES.md")
     if os.path.exists(guideline_path):
         with open(guideline_path, "r", encoding="utf-8") as gf:
             guide_md_content = gf.read()
         st.download_button(
-            "📥 Download Complete Developer Guidelines (TEAMMATE_MODEL_GUIDELINES.md)",
+            "📥 Download Complete Developer Guidelines (MODEL_DEVELOPER_GUIDELINES.md)",
             data=guide_md_content,
-            file_name="TEAMMATE_MODEL_GUIDELINES.md",
+            file_name="MODEL_DEVELOPER_GUIDELINES.md",
             mime="text/markdown",
             use_container_width=True
         )

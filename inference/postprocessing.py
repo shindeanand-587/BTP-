@@ -25,7 +25,10 @@ def compute_class_distribution(
     
     pixel_area_m2 = None
     if resolution is not None:
-        rx, ry = abs(resolution[0]), abs(resolution[1])
+        if isinstance(resolution, (tuple, list)):
+            rx, ry = abs(resolution[0]), abs(resolution[1])
+        else:
+            rx = ry = abs(resolution)
         # Only compute area if resolution appears in meters (typically >= 0.1 and <= 100)
         if 0.1 <= rx <= 100.0 and 0.1 <= ry <= 100.0:
             pixel_area_m2 = rx * ry

@@ -1,8 +1,8 @@
 """
 inference/generic.py
 --------------------
-Generic Adapter for Teammates' Models (HRNet, Swin, ConvNeXt, PSPNet, Custom PyTorch).
-Enables teammates to integrate their models with 100% training-inference fidelity via:
+Generic Adapter for Contributed & Custom Models (HRNet, Swin, ConvNeXt, PSPNet, Custom PyTorch).
+Enables collaborators to integrate their models with 100% training-inference fidelity via:
 1. Standalone TorchScript (.pt / .ts) — packages both architecture graph & weights
 2. Python Module Script (adapter.py / model.py) — dynamically imported from their repo
 3. Custom Preprocessing Pipeline — exact ImageNet, zscore, minmax, or custom preprocess() function
@@ -257,8 +257,8 @@ class GenericPyTorchAdapter(BaseModelAdapter):
         # Case B: Checkpoint is State-Dict Only or Code Pending Upload
         # ---------------------------------------------------------------------
         mid = self.model_info["id"]
-        disp_name = self.model_info.get('display_name', 'Teammate Model')
-        warnings.append(f"Teammate Model: {disp_name}.")
+        disp_name = self.model_info.get('display_name', 'Contributed Model')
+        warnings.append(f"Contributed Model: {disp_name}.")
         if self.load_error_msg:
             warnings.append(f"Note: Python model entrypoint encountered: {self.load_error_msg}. Running with calibrated domain heuristics.")
         else:

@@ -184,9 +184,9 @@ def render_model_selection():
             if chosen_model["status"] == "Pending Registration":
                 st.markdown("""
                 <div class="callout-box callout-warn">
-                    <b>⏳ Teammate Model Pending Integration:</b>
-                    This model slot is reserved for your teammate's trained checkpoint.
-                    The inference adapter and weights will be activated as soon as their checkpoint file is placed into the repository.
+                    <b>⏳ External Model Pending Integration:</b>
+                    This model slot is reserved for a contributed trained checkpoint.
+                    The inference adapter and weights will be activated as soon as their repository or checkpoint file is integrated.
                 </div>
                 """, unsafe_allow_html=True)
             elif not is_compatible:

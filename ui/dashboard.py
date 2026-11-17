@@ -61,7 +61,7 @@ def render_dashboard():
         <div class="kpi-card">
             <div class="kpi-val" style="color: #FBBF24;">{len(pending_models)}</div>
             <div class="kpi-label">Pending Registration</div>
-            <div class="kpi-sub">Teammate integration slots</div>
+            <div class="kpi-sub">External integration slots</div>
         </div>
         """, unsafe_allow_html=True)
     with c4:
@@ -167,7 +167,7 @@ def render_dashboard():
         st.markdown("""
         <div class="glass-panel" style="height: 100%;">
             <div style="font-weight: 700; font-size: 1.05rem; color: #38BDF8; margin-bottom: 8px;">
-                Me / Team Lead (Anand)
+                Project Lead: Anand Shinde
             </div>
             <div style="font-size: 0.85rem; color: #CBD5E1; line-height: 1.5;">
                 • <b>Cartosat-1 PAN:</b> SegFormer-B1 (2.5m)<br>
@@ -186,7 +186,7 @@ def render_dashboard():
         st.markdown("""
         <div class="glass-panel" style="height: 100%;">
             <div style="font-weight: 700; font-size: 1.05rem; color: #FBBF24; margin-bottom: 8px;">
-                Teammate 1 (Friend 1)
+                Research Collaborator 1 (Subsystem A)
             </div>
             <div style="font-size: 0.85rem; color: #CBD5E1; line-height: 1.5;">
                 • <b>Model A:</b> HRNet-W48 High-Resolution Road Segmenter<br>
@@ -203,7 +203,7 @@ def render_dashboard():
         st.markdown("""
         <div class="glass-panel" style="height: 100%;">
             <div style="font-weight: 700; font-size: 1.05rem; color: #FBBF24; margin-bottom: 8px;">
-                Teammate 2 (Friend 2)
+                Research Collaborator 2 (Subsystem B)
             </div>
             <div style="font-size: 0.85rem; color: #CBD5E1; line-height: 1.5;">
                 • <b>Model A:</b> ConvNeXt-Base Land Cover & Water Classifier<br>

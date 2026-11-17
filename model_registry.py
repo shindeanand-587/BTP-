@@ -7,13 +7,13 @@ Maintains registrations for:
    - WorldView-3 SegFormer-B1 (Native MS 1.24m) — Best Multispectral Model
    - Cartosat-1 PAN SegFormer-B1 (2.5m) — Best Panchromatic Single-Band Model
    - WorldView-3 U-Net ResNet34 (1.24m) — Best for Small Features & Water Boundaries
-2. Teammates' Models (4 to 6 models):
-   - Teammate 1 Model A (HRNet-W48 High-Resolution Urban Road Segmenter)
-   - Teammate 1 Model B (Swin-Transformer Building Footprint Segmenter)
-   - Teammate 2 Model A (ConvNeXt-Base Land Cover & Water Body Segmenter)
-   - Teammate 2 Model B (PSPNet Spectral Boundary Refinement Model)
+2. Contributed Collaborator Models:
+   - Research Collaborator Subsystem A (HRNet-W48 High-Resolution Urban Road Segmenter)
+   - Research Collaborator Subsystem A (Swin-Transformer Building Footprint Segmenter)
+   - Research Collaborator Subsystem B (ConvNeXt-Base Land Cover & Water Body Segmenter)
+   - Research Collaborator Subsystem B (PSPNet Spectral Boundary Refinement Model)
 3. Dynamic Model Registration:
-   - Loads dynamically registered teammate models from disk/session state.
+   - Loads dynamically registered external/contributed models from disk/session state.
 """
 
 import os
@@ -273,6 +273,10 @@ def get_teammate_models() -> List[Dict[str, Any]]:
 def get_ready_models() -> List[Dict[str, Any]]:
     """Return models ready for immediate inference execution."""
     return [m for m in get_full_registry().values() if m.get("status") == "Ready"]
+
+def get_pending_models() -> List[Dict[str, Any]]:
+    """Return models that are pending registration or weights."""
+    return [m for m in get_full_registry().values() if m.get("status") != "Ready"]
 
 def get_model_by_id(model_id: str) -> Optional[Dict[str, Any]]:
     """Retrieve model metadata by model ID."""
