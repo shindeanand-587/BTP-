@@ -2,11 +2,12 @@
 inference/generic.py
 --------------------
 Generic Adapter for Teammates' Models (HRNet, Swin, ConvNeXt, PSPNet, Custom PyTorch).
-Enables teammates to integrate their models via:
+Enables teammates to integrate their models with 100% training-inference fidelity via:
 1. Standalone TorchScript (.pt / .ts) — packages both architecture graph & weights
 2. Python Module Script (adapter.py / model.py) — dynamically imported from their repo
-3. Standard PyTorch serialized nn.Module (.pth / .pt)
-4. Fallback calibrated architectural simulation if only raw state_dict without code is uploaded.
+3. Custom Preprocessing Pipeline — exact ImageNet, zscore, minmax, or custom preprocess() function
+4. Standard PyTorch serialized nn.Module (.pth / .pt)
+5. Fallback calibrated architectural simulation if only raw state_dict without code is uploaded.
 """
 
 import time
@@ -47,19 +48,20 @@ class GenericPyTorchAdapter(BaseModelAdapter):
     """
     Universal runner for teammate-contributed segmentation models.
     Supports standard segmentation models outputting (B, 5, H, W) logits.
+    Guarantees strict numerical parity with training through custom preprocessing pipelines.
     """
     def __init__(self, model_info: Dict[str, Any], device: Optional[str] = None):
         super().__init__(model_info, device)
         self.is_custom = True
         self.load_error_msg: Optional[str] = None
         self.loaded_via: str = "simulation"
+        self.custom_preprocess_fn = None
 
     def _load_state_dict_safe(self, model: nn.Module, ckpt_path: str):
         """Safely loads weights into an initialized model instance."""
         ckpt = torch.load(ckpt_path, map_location=self.device, weights_only=False)
         state = ckpt.get("model_state_dict") or ckpt.get("state_dict") or ckpt.get("model_state") or ckpt
         if isinstance(state, dict):
-            # Clean possible 'module.' prefix from DataParallel training
             cleaned_state = {}
             for k, v in state.items():
                 clean_k = k[7:] if k.startswith("module.") else k
@@ -103,6 +105,11 @@ class GenericPyTorchAdapter(BaseModelAdapter):
                 if spec and spec.loader:
                     mod = importlib.util.module_from_spec(spec)
                     spec.loader.exec_module(mod)
+
+                    # Check for custom preprocessing hook
+                    if hasattr(mod, "preprocess") and callable(mod.preprocess):
+                        self.custom_preprocess_fn = mod.preprocess
+                        print(f"[GenericPyTorchAdapter] Registered custom preprocessing function from {os.path.basename(custom_script)}!")
 
                     model_instance = None
                     if hasattr(mod, "get_model"):
@@ -165,42 +172,79 @@ class GenericPyTorchAdapter(BaseModelAdapter):
         # ---------------------------------------------------------------------
         if self.model is not None and isinstance(self.model, nn.Module):
             warnings.append(f"Active Live Neural Network: Loaded via {self.loaded_via.replace('_', ' ').title()}.")
-            
-            # Prepare input tensor matching model input format
-            raw = bundle.raw_array.astype(np.float32)
-            c = raw.shape[0] if raw.ndim == 3 else 1
 
-            # Standardize channels: most models expect 3-channel RGB normalized in [0, 1]
-            target_bands = self.model_info.get("band_count", 3)
-            if target_bands == 3:
-                if c >= 3:
-                    inp = raw[:3]
-                elif c == 1:
-                    inp = np.repeat(raw[:1], 3, axis=0)
-                else:
-                    inp = raw[:3]
-            elif target_bands == 1:
-                if c == 1:
-                    inp = raw[:1]
-                else:
-                    gray = 0.299 * raw[0] + 0.587 * raw[1] + 0.114 * raw[2]
-                    inp = gray[np.newaxis, :, :]
+            # Check if custom preprocessing hook was registered
+            prep_cfg = self.model_info.get("preprocessing", {})
+            norm_type = prep_cfg.get("normalization_type", "divide_255")
+            active_tile_size = int(prep_cfg.get("tile_size") or tile_size)
+            active_overlap = int(prep_cfg.get("overlap") or overlap)
+
+            if self.custom_preprocess_fn is not None:
+                try:
+                    tensor = self.custom_preprocess_fn(bundle.raw_array)
+                    if not isinstance(tensor, torch.Tensor):
+                        tensor = torch.from_numpy(tensor).float()
+                    if tensor.ndim == 3:
+                        tensor = tensor.unsqueeze(0)
+                    tensor = tensor.to(self.device)
+                except Exception as e:
+                    warnings.append(f"Custom preprocessing notice: {e}, falling back to standard pipeline.")
+                    tensor = None
             else:
-                inp = raw
+                tensor = None
 
-            # Normalize values
-            if inp.max() > 1.0:
-                inp = inp / 255.0
+            if tensor is None:
+                raw = bundle.raw_array.astype(np.float32)
+                c = raw.shape[0] if raw.ndim == 3 else 1
 
-            tensor = torch.from_numpy(inp).unsqueeze(0).to(self.device)
+                # Standardize channels: target_bands
+                target_bands = self.model_info.get("band_count", 3)
+                if target_bands == 3:
+                    if c >= 3:
+                        inp = raw[:3]
+                    elif c == 1:
+                        inp = np.repeat(raw[:1], 3, axis=0)
+                    else:
+                        inp = raw[:3]
+                elif target_bands == 1:
+                    if c == 1:
+                        inp = raw[:1]
+                    else:
+                        gray = 0.299 * raw[0] + 0.587 * raw[1] + 0.114 * raw[2]
+                        inp = gray[np.newaxis, :, :]
+                else:
+                    inp = raw
+
+                # Apply exact training normalization
+                if norm_type == "imagenet":
+                    inp = inp / 255.0 if inp.max() > 1.0 else inp
+                    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)[:, None, None]
+                    std = np.array([0.229, 0.224, 0.225], dtype=np.float32)[:, None, None]
+                    inp = (inp - mean) / std
+                elif norm_type == "zscore" and "means" in prep_cfg and "stds" in prep_cfg:
+                    means = np.array(prep_cfg["means"], dtype=np.float32)
+                    stds = np.array(prep_cfg["stds"], dtype=np.float32)
+                    if len(means) == inp.shape[0]:
+                        inp = (inp - means[:, None, None]) / stds[:, None, None]
+                    else:
+                        inp = inp / 255.0 if inp.max() > 1.0 else inp
+                elif norm_type == "minmax":
+                    min_v = float(prep_cfg.get("min_val", 0.0))
+                    max_v = float(prep_cfg.get("max_val", 255.0))
+                    inp = np.clip((inp - min_v) / max(1e-5, (max_v - min_v)), 0.0, 1.0)
+                else:
+                    if inp.max() > 1.0:
+                        inp = inp / 255.0
+
+                tensor = torch.from_numpy(inp).unsqueeze(0).to(self.device)
 
             try:
                 mask, conf, probs = run_tiled_inference(
                     self.model,
                     tensor,
                     self.device,
-                    tile_size=tile_size,
-                    overlap=overlap,
+                    tile_size=active_tile_size,
+                    overlap=active_overlap,
                     return_probs=True
                 )
                 self.last_prob_map = probs

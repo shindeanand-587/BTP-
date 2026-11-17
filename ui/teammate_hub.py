@@ -87,16 +87,21 @@ def render_teammate_hub_page():
                 info = st.session_state["last_repo_inspection"]
                 meta = info["inferred_metadata"]
 
+                pf_stat = info.get("preflight_status", "Not Provided")
+                pf_bg = "#DCFCE7" if "PASSED" in pf_stat else "#FEF3C7"
+                pf_color = "#166534" if "PASSED" in pf_stat else "#92400E"
+
                 st.markdown(f"""
                 <div style="background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: 10px; padding: 14px 18px; margin: 16px 0;">
                     <div style="font-weight: 700; color: #166534; font-size: 1.05rem;">
                         ✅ Repository Successfully Inspected
                     </div>
-                    <div style="font-size: 0.88rem; color: #14532D; margin-top: 4px;">
+                    <div style="font-size: 0.88rem; color: #14532D; margin-top: 4px; line-height: 1.5;">
                         • <b>Cloned Folder:</b> <code>{os.path.basename(info['repo_dir'])}</code><br>
                         • <b>Config Status:</b> {'Found model_config.json' if info['has_config'] else 'Auto-inferred metadata from repo'}<br>
                         • <b>Discovered Weights:</b> {len(info['weight_files'])} checkpoint binary file(s)<br>
-                        • <b>Python Scripts:</b> {len(info['py_scripts'])} file(s)
+                        • <b>Python Scripts:</b> {len(info['py_scripts'])} file(s)<br>
+                        • <b>Preflight Verification:</b> <span style="background: {pf_bg}; color: {pf_color}; font-weight: 800; padding: 2px 8px; border-radius: 4px;">{pf_stat}</span>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -326,12 +331,65 @@ def render_teammate_hub_page():
     </div>
     """, unsafe_allow_html=True)
 
-    tab_ts, tab_py, tab_json, tab_spec = st.tabs([
-        "⭐ Option 1: TorchScript (.pt) [Recommended: Zero Code Dependencies]",
-        "🐍 Option 2: Python Script (adapter.py / model.py)",
+    tab_agent, tab_ts, tab_py, tab_json, tab_spec = st.tabs([
+        "🤖 AI Agent Master Prompt [Copy & Paste into AI]",
+        "⭐ Option 1: TorchScript (.pt) [Zero-Code Standalone]",
+        "🐍 Option 2: Python Script (adapter.py + weights)",
         "⚙️ Option 3: model_config.json Schema",
         "🎯 Input/Output Contracts & 5-Class Index Mapping"
     ])
+
+    with tab_agent:
+        st.markdown("""
+        ### 🤖 One-Click AI Agent Prompt for Your Friends
+        If your teammates trained their models using an AI coding assistant (**Cursor, Claude Code, Antigravity, ChatGPT, or GitHub Copilot**), they don't have to write any adapter or configuration by hand!
+        
+        **Tell them to copy the prompt below and paste it directly into their AI assistant:**
+        """)
+        st.code("""You are an expert PyTorch machine learning deployment engineer.
+I need to package my trained deep learning model into a standalone GitHub repository so it can be imported and executed flawlessly on our Unified Urban Feature Extraction AI Platform.
+
+Please inspect my model architecture and training code, and generate all required repository files following the platform contract:
+
+1. "adapter.py":
+   - Implements `get_model(weights_path=None)` which instantiates my model with 5 output classes, loads the weights (cleaning any 'module.' prefixes), sets model.eval(), and returns the nn.Module.
+   - If my model uses custom preprocessing (e.g. specific normalization, mean/std, or channel adjustments), implement `preprocess(raw_np)` that takes a numpy array and returns a normalized (1, C, H, W) torch tensor.
+   
+2. "model_config.json":
+   - Contains:
+     - "display_name": Model Name (Dataset in parentheses) e.g. "HRNet-W48 (SpaceNet Roads)"
+     - "author": Contributor Name
+     - "architecture": Specific architecture name
+     - "sensor": "3-Band Optical RGB" | "1-Band Panchromatic (2.5m)" | "8-Band WorldView-3 (1.24m)"
+     - "dataset_name": Name of training dataset
+     - "native_gsd_m": Spatial resolution in meters (e.g. 1.24)
+     - "overall_accuracy": Reported OA % (e.g. 84.5)
+     - "macro_miou": Reported mIoU % (e.g. 56.5)
+     - "class_ious": {"Water": ..., "Vegetation": ..., "Barren Land": ..., "Built-up": ..., "Roads": ...}
+     - "class_weights": {"Water": ..., "Vegetation": ..., "Barren Land": ..., "Built-up": ..., "Roads": ...}
+     - "preprocessing": {
+         "normalization_type": "imagenet" | "zscore" | "minmax" | "divide_255",
+         "means": [0.485, 0.456, 0.406],
+         "stds": [0.229, 0.224, 0.225],
+         "tile_size": 512,
+         "overlap": 64
+       }
+
+3. Checkpoint Preparation Script ("export_checkpoint.py"):
+   - Strips optimizer, scaler, and scheduler states from my checkpoint to ensure the .pth file is <100MB (GitHub's strict limit).
+   - Also exports a standalone TorchScript binary "model.pt" using `torch.jit.trace(model, dummy_input)`.
+
+4. "preflight_test.py":
+   - Self-contained verification script that loads adapter.py, runs a forward pass on a 512x512 tile, asserts the output shape is (1, 5, 512, 512), and confirms class indices 0..4 match the platform mapping.
+
+5. Exact 5-Class Index Mapping:
+   - Index 0: Water
+   - Index 1: Vegetation
+   - Index 2: Barren Land
+   - Index 3: Built-up
+   - Index 4: Roads
+
+Please write all these files now.""", language="text")
 
     with tab_ts:
         st.markdown("""

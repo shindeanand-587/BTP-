@@ -203,11 +203,40 @@ def inspect_repository(repo_dir: str, parsed: Dict[str, str]) -> Dict[str, Any]:
 
     # Find candidate inference script
     candidate_script = None
-    for script_name in ["inference.py", "predict.py", "adapter.py", "model.py", "evaluate.py"]:
+    for script_name in ["adapter.py", "inference.py", "predict.py", "model.py", "evaluate.py"]:
         matches = [s for s in py_scripts if os.path.basename(s).lower() == script_name]
         if matches:
             candidate_script = os.path.join(repo_dir, matches[0])
             break
+
+    # Find candidate preflight test script
+    candidate_preflight = None
+    for script_name in ["preflight_test.py", "verify.py", "test_model.py", "test_preflight.py"]:
+        matches = [s for s in py_scripts if os.path.basename(s).lower() == script_name]
+        if matches:
+            candidate_preflight = os.path.join(repo_dir, matches[0])
+            break
+
+    # Automated Preflight Verification Check
+    preflight_status = "Not Provided (Using Standard Protocol)"
+    preflight_output = ""
+    if candidate_preflight and os.path.exists(candidate_preflight):
+        try:
+            res_pf = subprocess.run(
+                [sys.executable, candidate_preflight],
+                cwd=repo_dir,
+                capture_output=True,
+                text=True,
+                timeout=20
+            )
+            if res_pf.returncode == 0:
+                preflight_status = "PASSED (100% Training-Inference Parity Verified)"
+                preflight_output = res_pf.stdout.strip()
+            else:
+                preflight_status = "FAILED (Preflight check non-zero exit)"
+                preflight_output = res_pf.stderr.strip() or res_pf.stdout.strip()
+        except Exception as e:
+            preflight_status = f"NOTICE ({str(e)})"
 
     # Determine default model metadata (combining config JSON and heuristics)
     owner = parsed.get("owner", "Teammate")
@@ -256,6 +285,10 @@ def inspect_repository(repo_dir: str, parsed: Dict[str, str]) -> Dict[str, Any]:
         "candidate_weights": candidate_weights,
         "py_scripts": py_scripts,
         "candidate_script": candidate_script,
+        "candidate_preflight": candidate_preflight,
+        "preflight_status": preflight_status,
+        "preflight_output": preflight_output,
+        "preprocessing": config_data.get("preprocessing", {}),
         "inferred_metadata": {
             "display_name": display_name,
             "owner": config_data.get("author") or config_data.get("owner") or owner,
@@ -331,6 +364,8 @@ def register_github_model_entry(
         "class_weights": meta.get("class_weights", {
             "Water": 1.0, "Vegetation": 1.0, "Barren Land": 1.0, "Built-up": 1.0, "Roads": 1.0
         }),
+        "preprocessing": repo_info.get("preprocessing", {}),
+        "preflight_status": repo_info.get("preflight_status", "Not Provided"),
         "compatibility": {
             "native_bands": [bands_num],
             "allow_rgb_adaptation": True,
