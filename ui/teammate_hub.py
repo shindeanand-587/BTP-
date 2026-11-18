@@ -10,6 +10,7 @@ Enables teammates and collaborators to:
 """
 
 import os
+import json
 import streamlit as st
 from typing import Dict, Any
 
@@ -17,7 +18,8 @@ from model_registry import (
     get_teammate_models,
     save_dynamic_model,
     delete_dynamic_model,
-    get_all_models
+    get_all_models,
+    get_dynamic_models
 )
 from inference.github_importer import (
     parse_github_url,
