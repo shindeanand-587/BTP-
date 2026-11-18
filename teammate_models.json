@@ -1,0 +1,112 @@
+{
+  "github_segformer_mit_b0_v9_se": {
+    "id": "github_segformer_mit_b0_v9_se",
+    "display_name": "SegFormer MiT-B0 V9 Semantic Core (BANDA and JNPA PAN 2.5m)",
+    "owner": "Research Collaborator",
+    "role_badge": "🌐 GitHub Repo",
+    "architecture": "SegFormer MiT-B0 Semantic Core",
+    "sensor": "1-Band Panchromatic (2.5m)",
+    "dataset_name": "BANDA and JNPA PAN 2.5m",
+    "native_gsd_m": 2.5,
+    "supported_bands": [
+      "Panchromatic"
+    ],
+    "band_count": 1,
+    "checkpoint_path": null,
+    "repo_dir": null,
+    "repo_url": "",
+    "custom_script": null,
+    "adapter_class": "GenericPyTorchAdapter",
+    "status": "Ready",
+    "is_ensemble": false,
+    "verified_metrics": {
+      "split": "Held-Out Test / BANDA & JNPA Split",
+      "macro_miou": 54.5,
+      "overall_accuracy": 82.5,
+      "class_ious": {
+        "Water": 45.0,
+        "Vegetation": 68.0,
+        "Barren Land": 15.0,
+        "Built-up": 72.0,
+        "Roads": 65.0
+      }
+    },
+    "class_weights": {
+      "Water": 1.0,
+      "Vegetation": 1.0,
+      "Barren Land": 1.0,
+      "Built-up": 1.0,
+      "Roads": 1.0
+    },
+    "preprocessing": {
+      "normalization_type": "divide_255",
+      "tile_size": 512,
+      "overlap": 64
+    },
+    "preflight_status": "Verified",
+    "compatibility": {
+      "native_bands": [
+        1
+      ],
+      "allow_rgb_adaptation": true,
+      "supports_grayscale": true
+    },
+    "description": "SegFormer MiT-B0 neural core specialized for dense urban grid semantic segmentation on BANDA and JNPA 2.5m panchromatic imagery."
+  },
+  "github_hrnet_w48_urban_in": {
+    "id": "github_hrnet_w48_urban_in",
+    "display_name": "HRNet-W48 High-Resolution Network (Urban Infrastructure 1.0m)",
+    "owner": "Research Collaborator",
+    "role_badge": "🌐 GitHub Repo",
+    "architecture": "HRNet-W48 Parallel Multiscale",
+    "sensor": "3-Band Optical RGB",
+    "dataset_name": "Urban Infrastructure 1.0m",
+    "native_gsd_m": 1.0,
+    "supported_bands": [
+      "Band 1",
+      "Band 2",
+      "Band 3"
+    ],
+    "band_count": 3,
+    "checkpoint_path": null,
+    "repo_dir": null,
+    "repo_url": "",
+    "custom_script": null,
+    "adapter_class": "GenericPyTorchAdapter",
+    "status": "Ready",
+    "is_ensemble": false,
+    "verified_metrics": {
+      "split": "Validation Split",
+      "macro_miou": 58.2,
+      "overall_accuracy": 84.1,
+      "class_ious": {
+        "Water": 48.0,
+        "Vegetation": 71.0,
+        "Barren Land": 18.0,
+        "Built-up": 76.0,
+        "Roads": 77.8
+      }
+    },
+    "class_weights": {
+      "Water": 1.0,
+      "Vegetation": 1.0,
+      "Barren Land": 1.0,
+      "Built-up": 1.0,
+      "Roads": 1.2
+    },
+    "preprocessing": {
+      "normalization_type": "imagenet",
+      "tile_size": 512,
+      "overlap": 64
+    },
+    "preflight_status": "Verified",
+    "compatibility": {
+      "native_bands": [
+        3
+      ],
+      "allow_rgb_adaptation": true,
+      "supports_grayscale": false
+    },
+    "description": "High-resolution parallel multi-scale feature network optimized for continuous arterial corridors and road network extraction."
+  }
+}

@@ -262,6 +262,39 @@ def render_teammate_hub_page():
     with col_side:
         st.markdown('<div style="font-size: 1.15rem; font-weight: 700; color: #0F172A; margin-bottom: 12px;">📋 Registered Custom & Contributed Models</div>', unsafe_allow_html=True)
 
+        # Manifest Export & Backup Utility
+        dyn_dict = get_dynamic_models()
+        manifest_data = json.dumps(dyn_dict, indent=2)
+        c_exp1, c_exp2 = st.columns(2)
+        with c_exp1:
+            st.download_button(
+                "💾 Export Manifest",
+                data=manifest_data,
+                file_name="teammate_models.json",
+                mime="application/json",
+                use_container_width=True,
+                help="Download full JSON manifest of all registered models for permanent backup."
+            )
+        with c_exp2:
+            with st.popover("📥 Import Manifest", use_container_width=True):
+                st.markdown("<b>Upload Model Manifest (.json)</b>", unsafe_allow_html=True)
+                up_manifest = st.file_uploader("Select teammate_models.json", type=["json"], key="up_manifest_file")
+                if up_manifest is not None:
+                    try:
+                        imported_data = json.loads(up_manifest.read().decode("utf-8"))
+                        if isinstance(imported_data, dict):
+                            count = 0
+                            for mid, m in imported_data.items():
+                                if isinstance(m, dict):
+                                    save_dynamic_model(m)
+                                    count += 1
+                            st.success(f"Restored {count} models successfully!")
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to import manifest: {e}")
+
+        st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+
         t_models = get_teammate_models()
         if not t_models:
             st.info("No custom models registered yet. Use the GitHub importer on the left to add one.")

@@ -75,6 +75,28 @@ class GenericPyTorchAdapter(BaseModelAdapter):
         repo_dir = self.model_info.get("repo_dir")
         custom_script = self.model_info.get("custom_script")
         ckpt_path = self.model_info.get("checkpoint_path")
+        repo_url = self.model_info.get("repo_url")
+
+        # Ephemeral Cloud Container Auto-Recovery:
+        # If repo_dir or ckpt_path is missing on disk, but a GitHub repo_url is available,
+        # automatically re-clone and re-inspect to restore model files on the fly!
+        if repo_url and (not repo_dir or not os.path.exists(repo_dir) or (ckpt_path and not os.path.exists(ckpt_path))):
+            try:
+                from inference.github_importer import download_or_clone_repo, inspect_repository
+                print(f"[GenericPyTorchAdapter] Ephemeral container auto-recovery: Re-fetching repository from {repo_url}...")
+                new_repo_dir, parsed = download_or_clone_repo(repo_url)
+                if new_repo_dir and os.path.exists(new_repo_dir):
+                    info = inspect_repository(new_repo_dir, parsed)
+                    repo_dir = new_repo_dir
+                    self.model_info["repo_dir"] = new_repo_dir
+                    if info.get("candidate_weights"):
+                        ckpt_path = info["candidate_weights"]["full_path"]
+                        self.model_info["checkpoint_path"] = ckpt_path
+                    if info.get("candidate_script"):
+                        custom_script = info["candidate_script"]
+                        self.model_info["custom_script"] = custom_script
+            except Exception as e:
+                print(f"[GenericPyTorchAdapter] Auto-recovery note: {e}")
 
         # Add repo directory to sys.path so any internal modules can resolve
         if repo_dir and os.path.exists(repo_dir) and repo_dir not in sys.path:

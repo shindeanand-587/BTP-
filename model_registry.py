@@ -215,8 +215,12 @@ CORE_MODELS: Dict[str, Dict[str, Any]] = {
 # Teammates' Models (Populated dynamically when teammates upload model weights)
 TEAMMATE_PRESET_MODELS: Dict[str, Dict[str, Any]] = {}
 
+# Global in-memory cache for dynamic models
+GLOBAL_DYNAMIC_REGISTRY: Dict[str, Dict[str, Any]] = {}
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DYNAMIC_REGISTRY_FILE = os.path.join(BASE_DIR, "teammate_models.json")
+SECONDARY_REGISTRY_FILE = os.path.join(os.path.expanduser("~"), ".urban_platform", "teammate_models.json")
 
 def sanitize_model_dict(m: Dict[str, Any]) -> Dict[str, Any]:
     """Ensures model metadata is completely sanitized with valid numerical types and class metrics."""
@@ -266,33 +270,117 @@ def sanitize_model_dict(m: Dict[str, Any]) -> Dict[str, Any]:
     return m
 
 def get_dynamic_models() -> Dict[str, Dict[str, Any]]:
-    """Loads dynamically uploaded contributed models from JSON file."""
+    """Loads dynamically uploaded contributed models across all persistent & session tiers."""
+    result: Dict[str, Dict[str, Any]] = {}
+
+    # Tier 1: Local repository teammate_models.json (Committed to Git, survives redeployment)
     if os.path.exists(DYNAMIC_REGISTRY_FILE):
         try:
             with open(DYNAMIC_REGISTRY_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                return {mid: sanitize_model_dict(m) for mid, m in data.items() if isinstance(m, dict)}
+                if isinstance(data, dict):
+                    for mid, m in data.items():
+                        if isinstance(m, dict):
+                            result[mid] = sanitize_model_dict(m)
+        except Exception as e:
+            print(f"[ModelRegistry] Note reading {DYNAMIC_REGISTRY_FILE}: {e}")
+
+    # Tier 2: Secondary user-level persistent cache (~/.urban_platform/teammate_models.json)
+    if os.path.exists(SECONDARY_REGISTRY_FILE):
+        try:
+            with open(SECONDARY_REGISTRY_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    for mid, m in data.items():
+                        if isinstance(m, dict) and mid not in result:
+                            result[mid] = sanitize_model_dict(m)
         except Exception:
-            return {}
-    return {}
+            pass
+
+    # Tier 3: In-memory global module registry
+    for mid, m in GLOBAL_DYNAMIC_REGISTRY.items():
+        if mid not in result:
+            result[mid] = sanitize_model_dict(m)
+
+    # Tier 4: Active Streamlit Session State (Guarantees persistence across tab navigation and browser refresh)
+    try:
+        import streamlit as st
+        if hasattr(st, "session_state") and "registered_dynamic_models" in st.session_state:
+            s_dict = st.session_state["registered_dynamic_models"]
+            if isinstance(s_dict, dict):
+                for mid, m in s_dict.items():
+                    if isinstance(m, dict) and mid not in result:
+                        result[mid] = sanitize_model_dict(m)
+            # Sync complete catalog back into session state
+            st.session_state["registered_dynamic_models"] = dict(result)
+        elif hasattr(st, "session_state"):
+            st.session_state["registered_dynamic_models"] = dict(result)
+    except Exception:
+        pass
+
+    return result
 
 def save_dynamic_model(model_dict: Dict[str, Any]):
-    """Persists a new uploaded contributed model into teammate_models.json."""
+    """Persists a new uploaded contributed model across all persistence tiers."""
     clean_dict = sanitize_model_dict(model_dict)
-    current = get_dynamic_models()
-    current[clean_dict["id"]] = clean_dict
-    os.makedirs(os.path.dirname(DYNAMIC_REGISTRY_FILE), exist_ok=True)
-    with open(DYNAMIC_REGISTRY_FILE, "w", encoding="utf-8") as f:
-        json.dump(current, f, indent=2)
+    mid = clean_dict["id"]
 
-def delete_dynamic_model(model_id: str) -> bool:
-    """Removes a dynamically registered teammate model from teammate_models.json."""
+    # 1. Update in-memory global registry
+    GLOBAL_DYNAMIC_REGISTRY[mid] = clean_dict
+
+    # 2. Update Streamlit session state
+    try:
+        import streamlit as st
+        if hasattr(st, "session_state"):
+            if "registered_dynamic_models" not in st.session_state or not isinstance(st.session_state["registered_dynamic_models"], dict):
+                st.session_state["registered_dynamic_models"] = {}
+            st.session_state["registered_dynamic_models"][mid] = clean_dict
+    except Exception:
+        pass
+
+    # 3. Update current repository JSON file
     current = get_dynamic_models()
-    if model_id in current:
-        del current[model_id]
+    current[mid] = clean_dict
+    try:
         os.makedirs(os.path.dirname(DYNAMIC_REGISTRY_FILE), exist_ok=True)
         with open(DYNAMIC_REGISTRY_FILE, "w", encoding="utf-8") as f:
             json.dump(current, f, indent=2)
+    except Exception as e:
+        print(f"[ModelRegistry] Error writing {DYNAMIC_REGISTRY_FILE}: {e}")
+
+    # 4. Update secondary user home directory cache
+    try:
+        os.makedirs(os.path.dirname(SECONDARY_REGISTRY_FILE), exist_ok=True)
+        with open(SECONDARY_REGISTRY_FILE, "w", encoding="utf-8") as f:
+            json.dump(current, f, indent=2)
+    except Exception:
+        pass
+
+def delete_dynamic_model(model_id: str) -> bool:
+    """Removes a dynamically registered teammate model across all persistence tiers."""
+    if model_id in GLOBAL_DYNAMIC_REGISTRY:
+        del GLOBAL_DYNAMIC_REGISTRY[model_id]
+
+    try:
+        import streamlit as st
+        if hasattr(st, "session_state") and "registered_dynamic_models" in st.session_state:
+            st.session_state["registered_dynamic_models"].pop(model_id, None)
+    except Exception:
+        pass
+
+    current = get_dynamic_models()
+    if model_id in current:
+        del current[model_id]
+        try:
+            with open(DYNAMIC_REGISTRY_FILE, "w", encoding="utf-8") as f:
+                json.dump(current, f, indent=2)
+        except Exception:
+            pass
+        try:
+            with open(SECONDARY_REGISTRY_FILE, "w", encoding="utf-8") as f:
+                json.dump(current, f, indent=2)
+        except Exception:
+            pass
         return True
     return False
 
