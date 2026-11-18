@@ -33,13 +33,16 @@ def resolve_checkpoint_file(checkpoint_path: Optional[str]) -> Optional[str]:
     return None
 
 class BaseModelAdapter(ABC):
-    def __init__(self, model_info: Dict[str, Any]):
-        self.model_info = model_info
-        self.model_id = model_info["id"]
-        self.display_name = model_info["display_name"]
-        self.checkpoint_path = model_info.get("checkpoint_path")
+    def __init__(self, model_info: Optional[Dict[str, Any]] = None, device: Optional[Any] = None, *args, **kwargs):
+        self.model_info = model_info or {}
+        self.model_id = self.model_info.get("id", "")
+        self.display_name = self.model_info.get("display_name", "")
+        self.checkpoint_path = self.model_info.get("checkpoint_path")
         self.model: Optional[torch.nn.Module] = None
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if device is not None:
+            self.device = torch.device(device) if isinstance(device, str) else device
+        else:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.checkpoint_missing_on_host = False
 
     def get_resolved_checkpoint(self) -> Optional[str]:

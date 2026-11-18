@@ -51,7 +51,7 @@ class GenericPyTorchAdapter(BaseModelAdapter):
     Guarantees strict numerical parity with training through custom preprocessing pipelines.
     """
     def __init__(self, model_info: Dict[str, Any], device: Optional[str] = None):
-        super().__init__(model_info, device)
+        super().__init__(model_info=model_info, device=device)
         self.is_custom = True
         self.load_error_msg: Optional[str] = None
         self.loaded_via: str = "simulation"
