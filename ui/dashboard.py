@@ -96,18 +96,29 @@ def render_dashboard():
     st.markdown('<div class="section-header">📁 Central Model Inventory & Benchmark Evidence</div>', unsafe_allow_html=True)
     
     table_rows_html = ""
+    def _to_f(v):
+        try:
+            return float(str(v).replace("%", "").strip()) if v is not None else None
+        except Exception:
+            return None
+
     for m in all_models:
-        metrics = m.get("verified_metrics", {})
-        oa = f"<b>{metrics.get('overall_accuracy'):.2f}%</b>" if metrics.get('overall_accuracy') is not None else "<span style='color:#64748B;'>Pending</span>"
-        miou = f"{metrics.get('macro_miou'):.2f}%" if metrics.get('macro_miou') is not None else "<span style='color:#64748B;'>Pending</span>"
+        metrics = m.get("verified_metrics") or {}
+        oa_f = _to_f(metrics.get('overall_accuracy'))
+        miou_f = _to_f(metrics.get('macro_miou'))
+        oa = f"<b>{oa_f:.2f}%</b>" if oa_f is not None else "<span style='color:#64748B;'>Pending</span>"
+        miou = f"{miou_f:.2f}%" if miou_f is not None else "<span style='color:#64748B;'>Pending</span>"
         
         road_iou = "—"
         bld_iou = "—"
-        if "class_ious" in metrics and metrics["class_ious"]:
-            if "Roads" in metrics["class_ious"]:
-                road_iou = f"<span style='color:#38BDF8; font-weight:600;'>{metrics['class_ious']['Roads']:.1f}%</span>"
-            if "Built-up" in metrics["class_ious"]:
-                bld_iou = f"<span style='color:#F43F5E; font-weight:600;'>{metrics['class_ious']['Built-up']:.1f}%</span>"
+        ious = metrics.get("class_ious") or {}
+        if isinstance(ious, dict):
+            r_val = _to_f(ious.get("Roads"))
+            if r_val is not None:
+                road_iou = f"<span style='color:#38BDF8; font-weight:600;'>{r_val:.1f}%</span>"
+            b_val = _to_f(ious.get("Built-up"))
+            if b_val is not None:
+                bld_iou = f"<span style='color:#F43F5E; font-weight:600;'>{b_val:.1f}%</span>"
 
         badge_html = "<span class='badge badge-ready'>Ready</span>" if m["status"] == "Ready" else "<span class='badge badge-pending'>Pending</span>"
 

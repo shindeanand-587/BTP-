@@ -543,12 +543,17 @@ def render_prediction_page():
         # ---------------------------------------------------------------------
         # Dynamic Class Weight Sensitivity Studio
         # ---------------------------------------------------------------------
-        trained_cw = m_info.get("class_weights", {"Water": 1.0, "Vegetation": 1.0, "Barren Land": 1.0, "Built-up": 1.0, "Roads": 1.0})
-        def_w = float(trained_cw.get("Water", 1.0))
-        def_v = float(trained_cw.get("Vegetation", 1.0))
-        def_b = float(trained_cw.get("Barren Land", 1.0))
-        def_u = float(trained_cw.get("Built-up", 1.0))
-        def_r = float(trained_cw.get("Roads", 1.0))
+        trained_cw = m_info.get("class_weights") or {}
+        def _to_f(v, d=1.0):
+            try:
+                return float(str(v).replace("%", "").strip()) if v is not None else d
+            except Exception:
+                return d
+        def_w = _to_f(trained_cw.get("Water"), 1.0)
+        def_v = _to_f(trained_cw.get("Vegetation"), 1.0)
+        def_b = _to_f(trained_cw.get("Barren Land"), 1.0)
+        def_u = _to_f(trained_cw.get("Built-up"), 1.0)
+        def_r = _to_f(trained_cw.get("Roads"), 1.0)
 
         # Check if user requested a reset
         if st.session_state.get("do_reset_weights", False):

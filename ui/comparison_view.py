@@ -20,6 +20,17 @@ from inference.geospatial_io import create_color_mask, create_blended_overlay, I
 from inference.postprocessing import compute_class_distribution
 from ui.prediction_view import prepare_smooth_display_image
 
+def safe_num(val: Any, default: float = 0.0) -> float:
+    """Safely extracts a float value from any primitive, handling None, strings with %, and corrupt values."""
+    if val is None:
+        return default
+    try:
+        if isinstance(val, str):
+            val = val.replace("%", "").strip()
+        return float(val)
+    except (ValueError, TypeError):
+        return default
+
 def render_comparison_page():
     st.markdown('<div class="section-header" style="margin-top: 0;">🔬 Multi-Model Side-by-Side Comparison Studio</div>', unsafe_allow_html=True)
 
@@ -92,13 +103,20 @@ def render_comparison_page():
         cols = st.columns(len(comp_results))
         for idx, res in enumerate(comp_results):
             m = res["model_info"]
-            cw = m.get("class_weights", {"Water": 1.0, "Vegetation": 1.0, "Barren Land": 1.0, "Built-up": 1.0, "Roads": 1.0})
+            cw = m.get("class_weights") or {}
+            cw_w = safe_num(cw.get("Water"), 1.0)
+            cw_v = safe_num(cw.get("Vegetation"), 1.0)
+            cw_b = safe_num(cw.get("Barren Land"), 1.0)
+            cw_u = safe_num(cw.get("Built-up"), 1.0)
+            cw_r = safe_num(cw.get("Roads"), 1.0)
+            cw_str_card = f"⚖️ Weights: [W:{cw_w:.1f}, V:{cw_v:.1f}, B:{cw_b:.1f}, U:{cw_u:.1f}, R:{cw_r:.1f}]"
+            dur_card = safe_num(res.get("duration"), 0.1)
             with cols[idx]:
                 st.markdown(f"""
                 <div style="background: #FFFFFF; padding: 12px 16px; border-radius: 10px; margin-bottom: 10px; border-top: 4px solid #2563EB; border-left: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; box-shadow: 0 1px 3px rgba(15,23,42,0.04);">
                     <div style="font-weight: 700; color: #0F172A; font-size: 1.0rem;">{m['display_name']}</div>
-                    <div style="color: #64748B; font-size: 0.85rem; margin-top: 2px;">{m['architecture']} • <b>{res['duration']:.2f}s latency</b></div>
-                    <div style="font-size: 0.80rem; color: #6D28D9; margin-top: 4px; font-family: 'JetBrains Mono', monospace; font-weight: 600;">⚖️ Weights: [W:{cw.get('Water', 1.0):.1f}, V:{cw.get('Vegetation', 1.0):.1f}, B:{cw.get('Barren Land', 1.0):.1f}, U:{cw.get('Built-up', 1.0):.1f}, R:{cw.get('Roads', 1.0):.1f}]</div>
+                    <div style="color: #64748B; font-size: 0.85rem; margin-top: 2px;">{m['architecture']} • <b>{dur_card:.2f}s latency</b></div>
+                    <div style="font-size: 0.80rem; color: #6D28D9; margin-top: 4px; font-family: 'JetBrains Mono', monospace; font-weight: 600;">{cw_str_card}</div>
                 </div>
                 """, unsafe_allow_html=True)
                 
@@ -154,12 +172,19 @@ def render_comparison_page():
         for res in comp_results:
             m = res["model_info"]
             dist = res["distribution"]
-            metrics = m.get("verified_metrics", {})
-            oa_str = f"{metrics.get('overall_accuracy', 80.0):.2f}%" if metrics.get('overall_accuracy') else "N/A"
-            miou_str = f"{metrics.get('macro_miou', 50.0):.2f}%" if metrics.get('macro_miou') else "N/A"
+            metrics = m.get("verified_metrics") or {}
+            oa_val = safe_num(metrics.get('overall_accuracy'))
+            miou_val = safe_num(metrics.get('macro_miou'))
+            oa_str = f"{oa_val:.2f}%" if oa_val > 0 else "N/A"
+            miou_str = f"{miou_val:.2f}%" if miou_val > 0 else "N/A"
 
-            cw = m.get("class_weights", {"Water": 1.0, "Vegetation": 1.0, "Barren Land": 1.0, "Built-up": 1.0, "Roads": 1.0})
-            cw_str = f"[{cw.get('Water', 1.0):.1f}, {cw.get('Vegetation', 1.0):.1f}, {cw.get('Barren Land', 1.0):.1f}, {cw.get('Built-up', 1.0):.1f}, {cw.get('Roads', 1.0):.1f}]"
+            cw = m.get("class_weights") or {}
+            cw_w = safe_num(cw.get("Water"), 1.0)
+            cw_v = safe_num(cw.get("Vegetation"), 1.0)
+            cw_b = safe_num(cw.get("Barren Land"), 1.0)
+            cw_u = safe_num(cw.get("Built-up"), 1.0)
+            cw_r = safe_num(cw.get("Roads"), 1.0)
+            cw_str = f"[{cw_w:.1f}, {cw_v:.1f}, {cw_b:.1f}, {cw_u:.1f}, {cw_r:.1f}]"
 
             water_area = [c["area_km2"] for c in dist["classes"] if c["class_id"] == 0][0]
             road_area = [c["area_km2"] for c in dist["classes"] if c["class_id"] == 4][0]
@@ -168,6 +193,7 @@ def render_comparison_page():
             water_str = f"{water_area:.3f} km²" if water_area is not None else f"{dist['classes'][0]['pct_valid']:.1f}%"
             road_str = f"{road_area:.3f} km²" if road_area is not None else f"{dist['classes'][4]['pct_valid']:.1f}%"
             built_str = f"{built_area:.3f} km²" if built_area is not None else f"{dist['classes'][3]['pct_valid']:.1f}%"
+            dur_row = safe_num(res.get('duration'), 0.1)
 
             rows += f"""
             <tr style="border-bottom: 1px solid #E2E8F0;">
@@ -178,7 +204,7 @@ def render_comparison_page():
                 <td style="padding: 12px 12px; color: #0284C7; font-weight: 600;">{water_str}</td>
                 <td style="padding: 12px 12px; color: #D97706; font-weight: 600;">{road_str}</td>
                 <td style="padding: 12px 12px; color: #DC2626; font-weight: 600;">{built_str}</td>
-                <td style="padding: 12px 12px; color: #475569; font-weight: 600;">{res['duration']:.3f}s</td>
+                <td style="padding: 12px 12px; color: #475569; font-weight: 600;">{dur_row:.3f}s</td>
             </tr>
             """
 
