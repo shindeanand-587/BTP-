@@ -342,7 +342,7 @@ def inspect_repository(repo_dir: str, parsed: Dict[str, str]) -> Dict[str, Any]:
                 "macro_miou": 56.4,
                 "checkpoint_path": "https://github.com/Prabhakar-Yadav/Feature-Extraction-from-Satellite-Imagery-BTP-II/releases/download/v1.0.0/best_expE4_model.pth",
                 "checkpoint_filename": "best_expE4_model.pth",
-                "description": "Primary Production Model: HighResNDVIAdaptiveUNet taking SPOT-5 (4-band + NDVI) and Pléiades RGB imagery.",
+                "description": "Primary Production Model (Current Semester): HighResNDVIAdaptiveUNet taking SPOT-5 (4-band + NDVI) and Pléiades RGB imagery.",
                 "class_ious": {"Water": 48.2, "Vegetation": 69.5, "Barren Land": 18.0, "Built-up": 74.5, "Roads": 66.8}
             },
             {
@@ -356,36 +356,8 @@ def inspect_repository(repo_dir: str, parsed: Dict[str, str]) -> Dict[str, Any]:
                 "macro_miou": 58.2,
                 "checkpoint_path": "https://github.com/Prabhakar-Yadav/Feature-Extraction-from-Satellite-Imagery-BTP-II/releases/download/v1.0.0/best_hybrid_hierarchical_model.pth",
                 "checkpoint_filename": "best_hybrid_hierarchical_model.pth",
-                "description": "Two-Stage Hierarchical Hybrid: Stage-1 macro ensemble (SegFormer + UNet) and Stage-2 subclass specialist.",
+                "description": "Secondary Production Model (Current Semester): Two-Stage Hierarchical Hybrid (SegFormer + Attention U-Net).",
                 "class_ious": {"Water": 52.1, "Vegetation": 71.2, "Barren Land": 22.0, "Built-up": 76.8, "Roads": 68.4}
-            },
-            {
-                "display_name": "Cartosat-1 PAN SegFormer Baseline (2.5m)",
-                "owner": "Prabhakar Yadav",
-                "architecture": "SegFormer-B1",
-                "sensor": "1-Band Panchromatic (2.5m)",
-                "dataset_name": "Cartosat-1 PAN (2.5m)",
-                "native_gsd_m": 2.50,
-                "overall_accuracy": 74.8,
-                "macro_miou": 56.8,
-                "checkpoint_path": "https://github.com/Prabhakar-Yadav/Feature-Extraction-from-Satellite-Imagery-BTP-II/releases/download/v1.0.0/best_segformer.pth",
-                "checkpoint_filename": "best_segformer.pth",
-                "description": "Panchromatic baseline SegFormer trained on Cartosat-1 2.5m imagery.",
-                "class_ious": {"Water": 42.0, "Vegetation": 64.0, "Barren Land": 12.0, "Built-up": 69.5, "Roads": 62.1}
-            },
-            {
-                "display_name": "Cartosat-1 PAN U-Net Baseline (2.5m)",
-                "owner": "Prabhakar Yadav",
-                "architecture": "U-Net ResNet34",
-                "sensor": "1-Band Panchromatic (2.5m)",
-                "dataset_name": "Cartosat-1 PAN (2.5m)",
-                "native_gsd_m": 2.50,
-                "overall_accuracy": 73.9,
-                "macro_miou": 54.1,
-                "checkpoint_path": "https://github.com/Prabhakar-Yadav/Feature-Extraction-from-Satellite-Imagery-BTP-II/releases/download/v1.0.0/best_unet.pth",
-                "checkpoint_filename": "best_unet.pth",
-                "description": "Panchromatic baseline U-Net with ResNet-34 backbone on Cartosat-1 2.5m imagery.",
-                "class_ious": {"Water": 40.5, "Vegetation": 62.5, "Barren Land": 11.5, "Built-up": 68.0, "Roads": 60.5}
             }
         ]
     elif len(weight_files) > 1:

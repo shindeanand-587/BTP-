@@ -17,6 +17,9 @@ def main():
     print(f"Discovered {len(info['weight_files'])} weight files/assets in repository and releases.")
     print(f"Discovered {len(info['discovered_models'])} distinct model profiles:")
 
+    assert len(info["discovered_models"]) == 2, f"Expected 2 production models, got {len(info['discovered_models'])}"
+    print(f"Verified exactly {len(info['discovered_models'])} current semester production models discovered.")
+
     for idx, m in enumerate(info["discovered_models"]):
         print(f"  [{idx + 1}] {m['display_name']}")
         print(f"       Architecture : {m['architecture']}")

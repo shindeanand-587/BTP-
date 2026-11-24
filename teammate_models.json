@@ -160,7 +160,7 @@
       "allow_rgb_adaptation": true,
       "supports_grayscale": false
     },
-    "description": "Primary Production Model: HighResNDVIAdaptiveUNet taking SPOT-5 (4-band + NDVI) and Pl\u00e9iades RGB imagery."
+    "description": "Primary Production Model (Current Semester): HighResNDVIAdaptiveUNet taking SPOT-5 (4-band + NDVI) and Pl\u00e9iades RGB imagery."
   },
   "github_pune_multispectral_segfo": {
     "id": "github_pune_multispectral_segfo",
@@ -213,7 +213,7 @@
       "allow_rgb_adaptation": true,
       "supports_grayscale": false
     },
-    "description": "Two-Stage Hierarchical Hybrid: Stage-1 macro ensemble (SegFormer + UNet) and Stage-2 subclass specialist."
+    "description": "Secondary Production Model (Current Semester): Two-Stage Hierarchical Hybrid (SegFormer + Attention U-Net)."
   },
   "github_cartosat_1_pan_segformer": {
     "id": "github_cartosat_1_pan_segformer",
