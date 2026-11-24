@@ -13,6 +13,7 @@ Enables collaborators to integrate their models with 100% training-inference fid
 import time
 import os
 import sys
+import shutil
 import importlib.util
 import torch
 import torch.nn as nn
@@ -101,6 +102,26 @@ class GenericPyTorchAdapter(BaseModelAdapter):
         # Add repo directory to sys.path so any internal modules can resolve
         if repo_dir and os.path.exists(repo_dir) and repo_dir not in sys.path:
             sys.path.insert(0, repo_dir)
+
+        # Check if checkpoint path is a remote URL (e.g. from GitHub Releases)
+        if ckpt_path and (str(ckpt_path).startswith("http://") or str(ckpt_path).startswith("https://")):
+            try:
+                base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                ckpt_dir = os.path.join(base_dir, "teammate_checkpoints")
+                os.makedirs(ckpt_dir, exist_ok=True)
+                fname = str(ckpt_path).split("/")[-1].split("?")[0]
+                local_path = os.path.join(ckpt_dir, fname)
+                if not os.path.exists(local_path) or os.path.getsize(local_path) < 1000:
+                    print(f"[GenericPyTorchAdapter] Downloading remote release checkpoint: {fname} from {ckpt_path}...")
+                    import urllib.request
+                    req = urllib.request.Request(ckpt_path, headers={"User-Agent": "Urban-Extraction-Platform/2.0"})
+                    with urllib.request.urlopen(req, timeout=60) as resp, open(local_path, "wb") as out_f:
+                        shutil.copyfileobj(resp, out_f)
+                    print(f"[GenericPyTorchAdapter] Checkpoint successfully downloaded to {local_path} ({os.path.getsize(local_path) / (1024*1024):.1f} MB)!")
+                ckpt_path = local_path
+                self.model_info["checkpoint_path"] = local_path
+            except Exception as e:
+                print(f"[GenericPyTorchAdapter] Remote download note: {e}")
 
         # ---------------------------------------------------------------------
         # 1. Strategy 1: Load via Standalone TorchScript (.pt / .ts)

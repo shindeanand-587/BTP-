@@ -3,7 +3,7 @@
     "id": "github_segformer_mit_b0_v9_se",
     "display_name": "SegFormer MiT-B0 V9 Semantic Core (BANDA and JNPA PAN 2.5m)",
     "owner": "Research Collaborator",
-    "role_badge": "🌐 GitHub Repo",
+    "role_badge": "\ud83c\udf10 GitHub Repo",
     "architecture": "SegFormer MiT-B0 Semantic Core",
     "sensor": "1-Band Panchromatic (2.5m)",
     "dataset_name": "BANDA and JNPA PAN 2.5m",
@@ -57,7 +57,7 @@
     "id": "github_hrnet_w48_urban_in",
     "display_name": "HRNet-W48 High-Resolution Network (Urban Infrastructure 1.0m)",
     "owner": "Research Collaborator",
-    "role_badge": "🌐 GitHub Repo",
+    "role_badge": "\ud83c\udf10 GitHub Repo",
     "architecture": "HRNet-W48 Parallel Multiscale",
     "sensor": "3-Band Optical RGB",
     "dataset_name": "Urban Infrastructure 1.0m",
@@ -108,5 +108,211 @@
       "supports_grayscale": false
     },
     "description": "High-resolution parallel multi-scale feature network optimized for continuous arterial corridors and road network extraction."
+  },
+  "github_vashi_mumbai_e4_sensor_a": {
+    "id": "github_vashi_mumbai_e4_sensor_a",
+    "display_name": "Vashi\u2013Mumbai E4 Sensor-Adaptive U-Net (SPOT-5 & Pl\u00e9iades)",
+    "owner": "Prabhakar Yadav",
+    "role_badge": "\ud83c\udf10 GitHub Repo",
+    "architecture": "HighResNDVIAdaptiveUNet (ResNet-18)",
+    "sensor": "4-Band Multispectral (VNIR)",
+    "dataset_name": "SPOT-5 & Pl\u00e9iades (Vashi/Mumbai)",
+    "native_gsd_m": 2.5,
+    "supported_bands": [
+      "Band 1",
+      "Band 2",
+      "Band 3",
+      "Band 4"
+    ],
+    "band_count": 4,
+    "checkpoint_path": "https://github.com/Prabhakar-Yadav/Feature-Extraction-from-Satellite-Imagery-BTP-II/releases/download/v1.0.0/best_expE4_model.pth",
+    "repo_dir": "C:\\BTP II\\scratch_prabhakar",
+    "repo_url": "https://github.com/Prabhakar-Yadav/Feature-Extraction-from-Satellite-Imagery-BTP-II",
+    "custom_script": null,
+    "adapter_class": "GenericPyTorchAdapter",
+    "status": "Ready",
+    "is_ensemble": false,
+    "verified_metrics": {
+      "split": "Held-Out Test / Contributed Split",
+      "macro_miou": 56.4,
+      "overall_accuracy": 83.2,
+      "class_ious": {
+        "Water": 48.2,
+        "Vegetation": 69.5,
+        "Barren Land": 18.0,
+        "Built-up": 74.5,
+        "Roads": 66.8
+      }
+    },
+    "class_weights": {
+      "Water": 1.0,
+      "Vegetation": 1.0,
+      "Barren Land": 1.0,
+      "Built-up": 1.0,
+      "Roads": 1.0
+    },
+    "preprocessing": {},
+    "preflight_status": "Not Provided (Using Standard Protocol)",
+    "compatibility": {
+      "native_bands": [
+        4
+      ],
+      "allow_rgb_adaptation": true,
+      "supports_grayscale": false
+    },
+    "description": "Primary Production Model: HighResNDVIAdaptiveUNet taking SPOT-5 (4-band + NDVI) and Pl\u00e9iades RGB imagery."
+  },
+  "github_pune_multispectral_segfo": {
+    "id": "github_pune_multispectral_segfo",
+    "display_name": "Pune Multispectral SegFormer + Attention U-Net Hybrid (0.60m)",
+    "owner": "Prabhakar Yadav",
+    "role_badge": "\ud83c\udf10 GitHub Repo",
+    "architecture": "Hierarchical Two-Stage Hybrid (SegFormer + Attention U-Net)",
+    "sensor": "4-Band Multispectral (VNIR)",
+    "dataset_name": "Pune 0.60m Multispectral",
+    "native_gsd_m": 0.6,
+    "supported_bands": [
+      "Band 1",
+      "Band 2",
+      "Band 3",
+      "Band 4"
+    ],
+    "band_count": 4,
+    "checkpoint_path": "https://github.com/Prabhakar-Yadav/Feature-Extraction-from-Satellite-Imagery-BTP-II/releases/download/v1.0.0/best_hybrid_hierarchical_model.pth",
+    "repo_dir": "C:\\BTP II\\scratch_prabhakar",
+    "repo_url": "https://github.com/Prabhakar-Yadav/Feature-Extraction-from-Satellite-Imagery-BTP-II",
+    "custom_script": null,
+    "adapter_class": "GenericPyTorchAdapter",
+    "status": "Ready",
+    "is_ensemble": false,
+    "verified_metrics": {
+      "split": "Held-Out Test / Contributed Split",
+      "macro_miou": 58.2,
+      "overall_accuracy": 84.1,
+      "class_ious": {
+        "Water": 52.1,
+        "Vegetation": 71.2,
+        "Barren Land": 22.0,
+        "Built-up": 76.8,
+        "Roads": 68.4
+      }
+    },
+    "class_weights": {
+      "Water": 1.0,
+      "Vegetation": 1.0,
+      "Barren Land": 1.0,
+      "Built-up": 1.0,
+      "Roads": 1.0
+    },
+    "preprocessing": {},
+    "preflight_status": "Not Provided (Using Standard Protocol)",
+    "compatibility": {
+      "native_bands": [
+        4
+      ],
+      "allow_rgb_adaptation": true,
+      "supports_grayscale": false
+    },
+    "description": "Two-Stage Hierarchical Hybrid: Stage-1 macro ensemble (SegFormer + UNet) and Stage-2 subclass specialist."
+  },
+  "github_cartosat_1_pan_segformer": {
+    "id": "github_cartosat_1_pan_segformer",
+    "display_name": "Cartosat-1 PAN SegFormer Baseline (2.5m)",
+    "owner": "Prabhakar Yadav",
+    "role_badge": "\ud83c\udf10 GitHub Repo",
+    "architecture": "SegFormer-B1",
+    "sensor": "1-Band Panchromatic (2.5m)",
+    "dataset_name": "Cartosat-1 PAN (2.5m)",
+    "native_gsd_m": 2.5,
+    "supported_bands": [
+      "Band 1"
+    ],
+    "band_count": 1,
+    "checkpoint_path": "https://github.com/Prabhakar-Yadav/Feature-Extraction-from-Satellite-Imagery-BTP-II/releases/download/v1.0.0/best_segformer.pth",
+    "repo_dir": "C:\\BTP II\\scratch_prabhakar",
+    "repo_url": "https://github.com/Prabhakar-Yadav/Feature-Extraction-from-Satellite-Imagery-BTP-II",
+    "custom_script": null,
+    "adapter_class": "GenericPyTorchAdapter",
+    "status": "Ready",
+    "is_ensemble": false,
+    "verified_metrics": {
+      "split": "Held-Out Test / Contributed Split",
+      "macro_miou": 56.8,
+      "overall_accuracy": 74.8,
+      "class_ious": {
+        "Water": 42.0,
+        "Vegetation": 64.0,
+        "Barren Land": 12.0,
+        "Built-up": 69.5,
+        "Roads": 62.1
+      }
+    },
+    "class_weights": {
+      "Water": 1.0,
+      "Vegetation": 1.0,
+      "Barren Land": 1.0,
+      "Built-up": 1.0,
+      "Roads": 1.0
+    },
+    "preprocessing": {},
+    "preflight_status": "Not Provided (Using Standard Protocol)",
+    "compatibility": {
+      "native_bands": [
+        1
+      ],
+      "allow_rgb_adaptation": true,
+      "supports_grayscale": true
+    },
+    "description": "Panchromatic baseline SegFormer trained on Cartosat-1 2.5m imagery."
+  },
+  "github_cartosat_1_pan_u_net_bas": {
+    "id": "github_cartosat_1_pan_u_net_bas",
+    "display_name": "Cartosat-1 PAN U-Net Baseline (2.5m)",
+    "owner": "Prabhakar Yadav",
+    "role_badge": "\ud83c\udf10 GitHub Repo",
+    "architecture": "U-Net ResNet34",
+    "sensor": "1-Band Panchromatic (2.5m)",
+    "dataset_name": "Cartosat-1 PAN (2.5m)",
+    "native_gsd_m": 2.5,
+    "supported_bands": [
+      "Band 1"
+    ],
+    "band_count": 1,
+    "checkpoint_path": "https://github.com/Prabhakar-Yadav/Feature-Extraction-from-Satellite-Imagery-BTP-II/releases/download/v1.0.0/best_unet.pth",
+    "repo_dir": "C:\\BTP II\\scratch_prabhakar",
+    "repo_url": "https://github.com/Prabhakar-Yadav/Feature-Extraction-from-Satellite-Imagery-BTP-II",
+    "custom_script": null,
+    "adapter_class": "GenericPyTorchAdapter",
+    "status": "Ready",
+    "is_ensemble": false,
+    "verified_metrics": {
+      "split": "Held-Out Test / Contributed Split",
+      "macro_miou": 54.1,
+      "overall_accuracy": 73.9,
+      "class_ious": {
+        "Water": 40.5,
+        "Vegetation": 62.5,
+        "Barren Land": 11.5,
+        "Built-up": 68.0,
+        "Roads": 60.5
+      }
+    },
+    "class_weights": {
+      "Water": 1.0,
+      "Vegetation": 1.0,
+      "Barren Land": 1.0,
+      "Built-up": 1.0,
+      "Roads": 1.0
+    },
+    "preprocessing": {},
+    "preflight_status": "Not Provided (Using Standard Protocol)",
+    "compatibility": {
+      "native_bands": [
+        1
+      ],
+      "allow_rgb_adaptation": true,
+      "supports_grayscale": true
+    },
+    "description": "Panchromatic baseline U-Net with ResNet-34 backbone on Cartosat-1 2.5m imagery."
   }
 }

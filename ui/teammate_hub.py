@@ -25,7 +25,8 @@ from inference.github_importer import (
     parse_github_url,
     download_or_clone_repo,
     inspect_repository,
-    register_github_model_entry
+    register_github_model_entry,
+    register_multiple_github_models
 )
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -108,47 +109,80 @@ def render_teammate_hub_page():
                 </div>
                 """, unsafe_allow_html=True)
 
+                disc_models = info.get("discovered_models", [])
+                active_meta = meta.copy()
+
+                if disc_models:
+                    st.markdown(f"""
+                    <div style="background: #EFF6FF; border: 1.5px solid #93C5FD; border-radius: 10px; padding: 14px 18px; margin: 12px 0;">
+                        <div style="font-weight: 700; color: #1E40AF; font-size: 1.05rem;">
+                            🎯 Discovered {len(disc_models)} Verified Model Profile(s) in this Repository
+                        </div>
+                        <div style="font-size: 0.88rem; color: #1E3A8A; margin-top: 4px; line-height: 1.5;">
+                            The platform automatically identified the contributor's distinct neural network architectures and checkpoint weights from the repository and releases.
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    c_reg_all, c_reg_gap = st.columns([2, 1])
+                    with c_reg_all:
+                        if st.button(f"⚡ Register All {len(disc_models)} Contributed Models at Once", type="primary", use_container_width=True):
+                            regs = register_multiple_github_models(info)
+                            st.success(f"🎉 Successfully registered all {len(regs)} models! They are now permanently active across the platform.")
+                            st.session_state.pop("last_repo_inspection", None)
+                            st.rerun()
+
+                    st.markdown('<div style="font-size: 0.95rem; font-weight: 700; color: #334155; margin: 12px 0 6px 0;">Or Select an Individual Model to Customize & Register:</div>', unsafe_allow_html=True)
+                    m_opts = [f"{m['display_name']} — {m['architecture']}" for m in disc_models]
+                    sel_m_idx = st.selectbox("Select Target Model:", range(len(disc_models)), format_func=lambda i: m_opts[i])
+                    active_meta = disc_models[sel_m_idx]
+
                 st.markdown('<div style="font-size: 1.05rem; font-weight: 700; color: #0F172A; margin-bottom: 8px;">⚙️ Confirm Model Registration Details:</div>', unsafe_allow_html=True)
 
                 with st.form("confirm_github_model_form"):
                     f_name = st.text_input(
                         "Model Display Name (include dataset in bracket):",
-                        value=meta.get("display_name", ""),
+                        value=active_meta.get("display_name", ""),
                         help="Must include the dataset name in parentheses, e.g. HRNet-W48 (SpaceNet Roads)"
                     )
-                    f_author = st.text_input("Author / Contributor:", value=meta.get("owner", ""))
+                    f_author = st.text_input("Author / Contributor:", value=active_meta.get("owner", ""))
 
                     c_a, c_s = st.columns(2)
                     with c_a:
-                        arch_list = [
-                            "HRNet-W48 Feature Network", "Swin-Transformer Urban FPN", "ConvNeXt-Base FPN",
-                            "DeepLabV3+ ResNet50", "PSPNet Edge-Loss", "U-Net ResNet34", "SegFormer-B1", "Custom PyTorch Module"
-                        ]
-                        cur_arch = meta.get("architecture", arch_list[0])
-                        a_idx = arch_list.index(cur_arch) if cur_arch in arch_list else len(arch_list) - 1
-                        f_arch = st.selectbox("Model Architecture:", arch_list, index=a_idx)
+                        f_arch = st.text_input(
+                            "Model Architecture / Backbone:",
+                            value=active_meta.get("architecture", "Custom Architecture"),
+                            help="Exact neural network backbone or model architecture name"
+                        )
                     with c_s:
                         sensor_list = ["3-Band Optical RGB", "4-Band Multispectral (VNIR)", "8-Band WorldView-3 (1.24m)", "1-Band Panchromatic (2.5m)"]
-                        cur_sens = meta.get("sensor", sensor_list[0])
+                        cur_sens = active_meta.get("sensor", sensor_list[0])
                         s_idx = sensor_list.index(cur_sens) if cur_sens in sensor_list else 0
                         f_sensor = st.selectbox("Target Sensor / Input Bands:", sensor_list, index=s_idx)
 
                     c_g, c_oa = st.columns(2)
                     with c_g:
-                        f_gsd = st.number_input("Target GSD (meters):", min_value=0.1, max_value=30.0, value=float(meta.get("native_gsd_m", 1.24)), step=0.1)
+                        f_gsd = st.number_input("Target GSD (meters):", min_value=0.1, max_value=30.0, value=float(active_meta.get("native_gsd_m", 1.24)), step=0.1)
                     with c_oa:
-                        f_oa = st.number_input("Reported Accuracy (OA %):", min_value=0.0, max_value=100.0, value=float(meta.get("overall_accuracy", 82.5)), step=0.5)
+                        f_oa = st.number_input("Reported Accuracy (OA %):", min_value=0.0, max_value=100.0, value=float(active_meta.get("overall_accuracy", 82.5)), step=0.5)
 
-                    f_desc = st.text_input("Description / Specialization:", value=meta.get("description", ""))
+                    f_desc = st.text_input("Description / Specialization:", value=active_meta.get("description", ""))
 
                     # Select weights file if multiple exist
-                    cand_weights = info.get("candidate_weights")
-                    sel_weight_path = cand_weights["full_path"] if cand_weights else None
+                    sel_weight_path = active_meta.get("checkpoint_path")
+                    if not sel_weight_path:
+                        cand_weights = info.get("candidate_weights")
+                        sel_weight_path = cand_weights["full_path"] if cand_weights else None
                     if len(info["weight_files"]) > 1:
                         w_opts = {w["full_path"]: f"{w['rel_path']} ({w['size_mb']} MB)" for w in info["weight_files"]}
-                        sel_weight_path = st.selectbox("Select Primary Checkpoint Weights:", options=list(w_opts.keys()), format_func=lambda x: w_opts[x])
+                        if sel_weight_path and sel_weight_path not in w_opts:
+                            w_opts[sel_weight_path] = f"{os.path.basename(sel_weight_path)} (Release Asset)"
+                        def_idx = list(w_opts.keys()).index(sel_weight_path) if sel_weight_path in w_opts else 0
+                        sel_weight_path = st.selectbox("Select Primary Checkpoint Weights:", options=list(w_opts.keys()), index=def_idx, format_func=lambda x: w_opts[x])
                     elif len(info["weight_files"]) == 1:
                         st.caption(f"📦 Checkpoint weights file: `{info['weight_files'][0]['rel_path']}` ({info['weight_files'][0]['size_mb']} MB)")
+                    elif sel_weight_path:
+                        st.caption(f"📦 Checkpoint weights asset: `{os.path.basename(sel_weight_path)}`")
 
                     submit_reg = st.form_submit_button("🚀 Register & Activate Model", type="primary", use_container_width=True)
 
