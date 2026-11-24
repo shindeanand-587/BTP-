@@ -139,10 +139,26 @@ def analyze_image_characteristics(bundle: ImageInputBundle) -> Dict[str, Any]:
         status = m.get("status", "Ready")
         comp = m.get("compatibility", {})
         native_bands = comp.get("native_bands", [])
-        score = 0.0
-        reasons = []
+        m_bands = m.get("band_count") or (len(native_bands) if native_bands else 3)
+        
+        try:
+            m_gsd = float(str(m.get("native_gsd_m", 1.24)).replace("%", "").strip())
+        except Exception:
+            m_gsd = 1.24
 
-        # Teammate pending check
+        vm = m.get("verified_metrics") or {}
+        try:
+            oa = float(str(vm.get("overall_accuracy", 80.0)).replace("%", "").strip())
+        except Exception:
+            oa = 80.0
+        try:
+            miou = float(str(vm.get("macro_miou", 50.0)).replace("%", "").strip())
+        except Exception:
+            miou = 50.0
+
+        ious = vm.get("class_ious") or {}
+
+        # Inactive or missing weights
         if status != "Ready":
             model_scores[mid] = {
                 "score": 0.0,
@@ -153,98 +169,136 @@ def analyze_image_characteristics(bundle: ImageInputBundle) -> Dict[str, Any]:
             }
             continue
 
+        reasons = []
+
         # Criteria 0: Native Vector Shapefile / GeoJSON
         if is_vector_input:
-            if mid == "wv3_native_segformer":
+            if "vector" in mid.lower() or "survey" in mid.lower():
                 score = 99.0
-                reasons.append("Cadastral vector file detected. Survey geometry and centerlines will be extracted directly with 100% precision.")
+                reasons.append("Cadastral vector engine extracts survey boundaries with 100% geometric precision.")
+            elif oa >= 83.5:
+                score = 94.0
+                reasons.append(f"Top-performing neural backbone ({oa:.1f}% OA) for vector feature rasterization.")
             else:
-                score = 90.0
-                reasons.append("Cadastral vector file detected. Survey geometry and centerlines will be extracted directly with 100% precision.")
+                score = 88.0
+                reasons.append("Compatible geometric rasterization backbone.")
 
-        # Criteria A: Panchromatic / Grayscale
-        elif is_panchromatic:
-            if mid == "cartosat_pan_segformer":
-                score = 98.0
-                reasons.append("Trained natively on 1-band Cartosat-1 panchromatic imagery.")
-            elif comp.get("supports_grayscale", False):
-                score = 75.0
-                reasons.append("Compatible via grayscale adaptation.")
-            else:
-                score = 10.0
-                reasons.append("Requires multispectral channels.")
-
-        # Criteria B: High-Res 8-Band WorldView-3
-        elif channels == 8:
-            if mid == "wv3_native_segformer":
-                if edge_density_score >= 0.50:
-                    score = 96.0
-                    reasons.append("Top road and built-up accuracy (82.58% OA) on dense 8-band urban scenes.")
-                else:
-                    score = 91.0
-                    reasons.append("Native 8-band hierarchical transformer.")
-            elif mid == "wv3_native_unet":
-                if water_score >= 0.25:
-                    score = 97.0
-                    reasons.append("Skip connections preserve fine water boundaries & small creeks (+19.19% Water IoU).")
-                else:
-                    score = 88.0
-                    reasons.append("Native 8-band U-Net architecture.")
-            elif mid == "sentinel2_ms_segformer":
-                score = 45.0
-                reasons.append("4-band model; requires band subsampling from 8 bands.")
-            elif mid == "cartosat_pan_segformer":
-                score = 65.0
-                reasons.append("Accepts luminance reduction from multispectral bands.")
-            else:
-                score = 50.0
-                reasons.append("General multispectral compatibility.")
-
-        # Criteria C: 4-Band Multispectral
-        elif channels == 4 and is_geo:
-            if mid == "sentinel2_ms_segformer":
-                score = 95.0
-                reasons.append("Specifically calibrated for 4-band BOA surface reflectance (B2, B3, B4, B8).")
-            elif mid == "wv3_native_segformer":
-                score = 72.0
-                reasons.append("8-band model requiring spectral synthesis for missing bands.")
-            elif mid == "wv3_native_unet":
-                score = 70.0
-                reasons.append("8-band model requiring spectral synthesis.")
-            else:
-                score = 50.0
-
-        # Criteria D: Standard Optical RGB / RGBA
         else:
-            if water_score >= 0.30:
-                if mid == "wv3_native_unet":
-                    score = 94.0
-                    reasons.append("Dominant water detected; U-Net skip connections prevent coastal edge bleeding.")
-                elif mid == "wv3_native_segformer":
-                    score = 89.0
-                    reasons.append("Good accuracy, but U-Net is superior for fine water interfaces.")
-                elif mid == "cartosat_pan_segformer":
-                    score = 72.0
-                    reasons.append("Supports RGB via photopic luminance conversion.")
+            # -------------------------------------------------------------
+            # Factor 1: Spectral Band Matching & Adaptability (Max 35 points)
+            # -------------------------------------------------------------
+            if channels == m_bands:
+                spectral_score = 35.0
+                reasons.append(f"Direct native {channels}-band spectral calibration.")
+            elif channels == 8 and m_bands == 4:
+                spectral_score = 28.0
+                reasons.append("Accepts 4-band VNIR subset from 8-band WorldView-3.")
+            elif channels == 8 and m_bands == 3:
+                spectral_score = 24.0
+                reasons.append("Consumes 3-band True Color RGB channels from 8-band WorldView-3.")
+            elif channels == 4 and m_bands == 8:
+                spectral_score = 22.0
+                reasons.append("Requires spectral synthesis for missing WorldView-3 bands.")
+            elif channels == 4 and m_bands == 3:
+                spectral_score = 26.0
+                reasons.append("Consumes RGB channels from 4-band multispectral scene.")
+            elif channels == 3 and m_bands == 4:
+                spectral_score = 30.0
+                reasons.append("High-fidelity RGB adaptation to 4-band neural core.")
+            elif channels == 3 and comp.get("allow_rgb_adaptation", True):
+                spectral_score = 28.0
+                reasons.append(f"RGB adaptation to {m_bands}-band neural core.")
+            elif is_panchromatic and m_bands == 1:
+                spectral_score = 35.0
+                reasons.append("Native 1-band panchromatic sensor profile.")
+            elif is_panchromatic and comp.get("supports_grayscale", True):
+                spectral_score = 28.0
+                reasons.append("Accepts panchromatic single-channel replication.")
+            elif not is_panchromatic and m_bands == 1:
+                spectral_score = 24.0
+                reasons.append("Accepts photopic luminance reduction to panchromatic channel.")
             else:
-                if mid == "wv3_native_segformer":
-                    score = 95.0
-                    reasons.append("Peak overall accuracy & continuous road extraction via spectral synthesis.")
-                elif mid == "wv3_native_unet":
-                    score = 88.0
-                    reasons.append("Competitive U-Net feature extraction.")
-                elif mid == "cartosat_pan_segformer":
-                    score = 82.0
-                    reasons.append("Photopic luminance conversion natively captures panchromatic structure.")
+                spectral_score = 16.0
+                reasons.append("Requires cross-sensor channel synthesis.")
+
+            # -------------------------------------------------------------
+            # Factor 2: Spatial Resolution / GSD Alignment (Max 25 points)
+            # -------------------------------------------------------------
+            if gsd_m is not None and gsd_m > 0:
+                rel_diff = abs(gsd_m - m_gsd) / max(gsd_m, m_gsd)
+                res_score = 25.0 * max(0.25, 1.0 - (rel_diff * 0.75))
+                reasons.append(f"Target GSD {m_gsd:.2f}m closely aligns with scene resolution {gsd_m:.2f}m.")
+            else:
+                # Pixel grid heuristics based on structural edge energy
+                if edge_density_score > 0.60:
+                    if m_gsd <= 0.80:
+                        res_score = 25.0
+                        reasons.append(f"Sub-meter specialization ({m_gsd:.2f}m GSD) optimal for high-density structural grids.")
+                    elif m_gsd <= 1.50:
+                        res_score = 23.0
+                        reasons.append("Fine resolution captures urban arterial road networks.")
+                    else:
+                        res_score = 18.0
+                elif edge_density_score < 0.30:
+                    if m_gsd >= 2.0:
+                        res_score = 25.0
+                        reasons.append(f"Regional GSD ({m_gsd:.1f}m) ideal for broad landscape mapping.")
+                    else:
+                        res_score = 20.0
                 else:
-                    score = 60.0
+                    res_score = 22.0
+
+            # -------------------------------------------------------------
+            # Factor 3: Typology & Class Specialization (Max 20 points)
+            # -------------------------------------------------------------
+            def _sf(v, d=60.0):
+                try:
+                    return float(str(v).replace("%", "").strip())
+                except Exception:
+                    return d
+
+            iou_built = _sf(ious.get("Built-up"), 68.0)
+            iou_road = _sf(ious.get("Roads"), 62.0)
+            iou_water = _sf(ious.get("Water"), 45.0)
+            iou_veg = _sf(ious.get("Vegetation"), 65.0)
+
+            if "Dense Urban" in typology or edge_density_score >= 0.50:
+                urban_perf = (iou_built * 0.55 + iou_road * 0.45)
+                sem_score = (urban_perf / 100.0) * 20.0
+                reasons.append(f"High urban feature IoU (Built-up {iou_built:.1f}%, Roads {iou_road:.1f}%).")
+            elif "Water" in typology or water_score >= 0.30:
+                water_perf = (iou_water * 0.75 + iou_veg * 0.25)
+                sem_score = (water_perf / 100.0) * 20.0
+                reasons.append(f"Strong coastal boundary discrimination ({iou_water:.1f}% Water IoU).")
+            else:
+                gen_perf = (iou_built + iou_road + iou_veg + iou_water) / 4.0
+                sem_score = (gen_perf / 100.0) * 20.0
+                reasons.append("Balanced multi-class segmentation fidelity across mixed terrain.")
+
+            # -------------------------------------------------------------
+            # Factor 4: Verified Empirical Accuracy & Confidence (Max 20 points)
+            # -------------------------------------------------------------
+            emp_score = (min(oa, 95.0) / 100.0 * 14.0) + (min(miou, 75.0) / 75.0 * 6.0)
+            if oa >= 83.5:
+                reasons.append(f"Benchmark-leading accuracy ({oa:.1f}% OA, {miou:.1f}% mIoU).")
+            elif oa >= 80.0:
+                reasons.append(f"Verified high test accuracy ({oa:.1f}% OA).")
+
+            score = round(spectral_score + res_score + sem_score + emp_score, 1)
+
+        score = float(np.clip(score, 15.0, 99.0))
+        # Deduplicate reasons preserving order
+        clean_reasons = []
+        for r in reasons:
+            if r not in clean_reasons:
+                clean_reasons.append(r)
 
         model_scores[mid] = {
-            "score": round(score, 1),
+            "score": score,
             "fit_percent": int(round(score)),
             "is_eligible": score >= 50.0,
             "status": status,
-            "reason": " ".join(reasons)
+            "reason": " ".join(clean_reasons)
         }
 
     # Determine recommended model based on dynamic score
@@ -252,7 +306,7 @@ def analyze_image_characteristics(bundle: ImageInputBundle) -> Dict[str, Any]:
     if eligible:
         best_id = max(eligible.keys(), key=lambda k: eligible[k]["score"])
     else:
-        best_id = "wv3_native_segformer"
+        best_id = list(model_scores.keys())[0] if model_scores else "wv3_native_segformer"
 
     best_m = get_model_by_id(best_id)
     rec_info = {

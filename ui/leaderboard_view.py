@@ -37,20 +37,31 @@ def render_leaderboard_page():
 
     all_models = get_all_models()
 
-    # -------------------------------------------------------------------------
-    # 1. Model Architectural Specification Profiles (Clean Light Theme)
-    # -------------------------------------------------------------------------
-    podium_cols = st.columns(3)
-    core_models = get_core_models()
+    # Sort all models empirically by Overall Accuracy descending, then macro mIoU descending
+    ranked_models = sorted(
+        all_models,
+        key=lambda m: (
+            safe_num((m.get("verified_metrics") or {}).get("overall_accuracy"), 0.0),
+            safe_num((m.get("verified_metrics") or {}).get("macro_miou"), 0.0)
+        ),
+        reverse=True
+    )
 
+    # -------------------------------------------------------------------------
+    # 1. Model Architectural Specification Profiles (Top-3 Empirical Podium)
+    # -------------------------------------------------------------------------
+    st.markdown('<div class="section-header" style="margin-top: 0;">🏆 Top Performing Neural Backbones (Empirical Benchmark Podium)</div>', unsafe_allow_html=True)
+
+    podium_cols = st.columns(3)
     card_themes = [
-        {"badge": "🌟 Multispectral Benchmark", "color": "#1D4ED8", "border": "#BFDBFE", "bg": "#EFF6FF"},
-        {"badge": "🗺️ Panchromatic Benchmark", "color": "#0369A1", "border": "#BAE6FD", "bg": "#F0F9FF"},
-        {"badge": "🌊 Boundary & Water Specialist", "color": "#0F766E", "border": "#99F6E4", "bg": "#F0FDFA"}
+        {"rank_label": "🥇 Rank 1 Benchmark Champion", "color": "#B45309", "border": "#FDE68A", "bg": "#FFFBEB", "glow": "0 4px 14px rgba(217,119,6,0.12)"},
+        {"rank_label": "🥈 Rank 2 High-Accuracy Performer", "color": "#334155", "border": "#CBD5E1", "bg": "#F8FAFC", "glow": "0 3px 10px rgba(100,116,139,0.08)"},
+        {"rank_label": "🥉 Rank 3 High-Fidelity Backbone", "color": "#1D4ED8", "border": "#BFDBFE", "bg": "#EFF6FF", "glow": "0 3px 10px rgba(37,99,235,0.08)"}
     ]
 
-    for idx, m in enumerate(core_models[:3]):
-        thm = card_themes[idx % len(card_themes)]
+    for idx in range(min(3, len(ranked_models))):
+        m = ranked_models[idx]
+        thm = card_themes[idx]
         metrics = m.get("verified_metrics") or {}
         oa_val = safe_num(metrics.get("overall_accuracy"), 80.0)
         miou_val = safe_num(metrics.get("macro_miou"), 50.0)
@@ -60,17 +71,24 @@ def render_leaderboard_page():
         cw_b = safe_num(cw.get("Barren Land"), 1.0)
         cw_u = safe_num(cw.get("Built-up"), 1.0)
         cw_r = safe_num(cw.get("Roads"), 1.0)
+
+        owner_str = m.get("owner", "System")
+        role_badge = m.get("role_badge", "")
+        role_label = role_badge if role_badge else ("🌟 Core System" if idx >= 2 else f"👥 Contributed ({owner_str})")
+        role_pill = f'<span style="display: inline-block; background: #FFFFFF; border: 1px solid {thm["border"]}; border-radius: 6px; padding: 2px 8px; font-size: 0.76rem; font-weight: 700; color: {thm["color"]}; margin-top: 4px;">{role_label}</span>'
+
         with podium_cols[idx]:
             st.markdown(f"""
-            <div style="background: {thm['bg']}; border: 1.5px solid {thm['border']}; border-radius: 12px; padding: 20px 18px; text-align: center; margin-bottom: 22px; box-shadow: 0 2px 6px rgba(15,23,42,0.04);">
-                <div style="font-size: 1.05rem; font-weight: 800; color: {thm['color']}; margin-bottom: 6px;">{thm['badge']}</div>
-                <div style="font-size: 1.15rem; font-weight: 800; color: #0F172A;">{m['display_name']}</div>
-                <div style="font-size: 0.88rem; color: #64748B; margin-bottom: 12px; font-weight: 600;">{m['architecture']} • {m['sensor']}</div>
+            <div style="background: {thm['bg']}; border: 1.5px solid {thm['border']}; border-radius: 14px; padding: 20px 18px; text-align: center; margin-bottom: 22px; box-shadow: {thm['glow']};">
+                <div style="font-size: 1.05rem; font-weight: 800; color: {thm['color']}; margin-bottom: 4px;">{thm['rank_label']}</div>
+                {role_pill}
+                <div style="font-size: 1.15rem; font-weight: 800; color: #0F172A; margin-top: 8px;">{m['display_name']}</div>
+                <div style="font-size: 0.88rem; color: #64748B; margin-bottom: 12px; font-weight: 600;">{m.get('architecture', 'Custom Architecture')} • {m.get('sensor', 'Optical')}</div>
                 
                 <div style="display: flex; justify-content: space-around; background: #FFFFFF; border: 1px solid {thm['border']}; padding: 10px 14px; border-radius: 10px;">
                     <div>
                         <div style="font-size: 0.76rem; color: #64748B; font-weight: 700;">ACCURACY</div>
-                        <div style="font-size: 1.35rem; font-weight: 800; color: #1D4ED8; font-family: 'JetBrains Mono', monospace;">{oa_val:.1f}%</div>
+                        <div style="font-size: 1.35rem; font-weight: 800; color: {thm['color']}; font-family: 'JetBrains Mono', monospace;">{oa_val:.1f}%</div>
                     </div>
                     <div>
                         <div style="font-size: 0.76rem; color: #64748B; font-weight: 700;">MEAN IOU</div>
@@ -116,8 +134,10 @@ def render_leaderboard_page():
         "Vegetation IoU": lambda m: safe_num(((m.get("verified_metrics") or {}).get("class_ious") or {}).get("Vegetation"), 0.0)
     }
 
-    names = [m["display_name"].split("(")[0].strip() for m in all_models]
-    scores = [metric_lookup[selected_metric_name](m) for m in all_models]
+    # Sort models by selected metric descending for ranked visual comparison
+    sorted_chart_models = sorted(all_models, key=lambda m: metric_lookup[selected_metric_name](m), reverse=True)
+    names = [m["display_name"].split("(")[0].strip() for m in sorted_chart_models]
+    scores = [metric_lookup[selected_metric_name](m) for m in sorted_chart_models]
 
     fig, ax = plt.subplots(figsize=(10, 4.6), facecolor="#FFFFFF")
     ax.set_facecolor("#FFFFFF")
@@ -126,7 +146,19 @@ def render_leaderboard_page():
     for spine in ax.spines.values():
         spine.set_color("#CBD5E1")
 
-    bar_colors = ["#2563EB" if i < 3 else "#7C3AED" for i in range(len(names))]
+    bar_colors = []
+    for i, m in enumerate(sorted_chart_models):
+        if i == 0:
+            bar_colors.append("#D97706") # Gold Leader
+        elif i == 1:
+            bar_colors.append("#64748B") # Silver
+        elif i == 2:
+            bar_colors.append("#2563EB") # Bronze
+        elif m.get("id", "").startswith("github_") or m.get("id", "").startswith("custom_"):
+            bar_colors.append("#7C3AED") # Contributed Purple
+        else:
+            bar_colors.append("#3B82F6") # Core Blue
+
     bars = ax.bar(names, scores, color=bar_colors, edgecolor="white", lw=1.2, width=0.48)
 
     for bar in bars:
@@ -136,7 +168,7 @@ def render_leaderboard_page():
                         textcoords="offset points", ha="center", va="bottom", fontsize=10, color="#0F172A", fontweight="bold")
 
     ax.set_ylabel(f"{selected_metric_name} (%)", color="#334155", fontsize=12, fontweight="bold")
-    ax.set_title(f"Comparative Benchmark: {selected_metric_name} (Blue = Core Models, Purple = Contributed)",
+    ax.set_title(f"Ranked Leaderboard Benchmark: {selected_metric_name} (Gold = #1, Silver = #2, Bronze = #3)",
                  color="#0F172A", fontsize=13.5, fontweight="bold", pad=14)
     ax.set_ylim(0, 100)
     plt.xticks(rotation=15, ha="right", color="#0F172A", fontweight="700", fontsize=10.5)
@@ -150,7 +182,7 @@ def render_leaderboard_page():
     st.markdown('<div class="section-header" style="margin-top: 24px;">📋 Detailed Model Specification & Verification Table</div>', unsafe_allow_html=True)
 
     rows = ""
-    for idx, m in enumerate(all_models):
+    for rank_idx, m in enumerate(ranked_models, start=1):
         metrics = m.get("verified_metrics") or {}
         ious = metrics.get("class_ious") or {}
         oa = safe_num(metrics.get("overall_accuracy"), 0.0)
@@ -168,7 +200,17 @@ def render_leaderboard_page():
         iou_u = safe_num(ious.get("Built-up"), 0.0)
         iou_r = safe_num(ious.get("Roads"), 0.0)
 
-        badge = '<span class="badge badge-ready">🌟 Core</span>' if idx < 3 else '<span class="badge" style="background: #F5F3FF; color: #7C3AED; border: 1px solid #DDD6FE;">👥 Custom</span>'
+        if rank_idx == 1:
+            rank_badge = '<span class="badge" style="background: #FEF3C7; color: #B45309; border: 1.5px solid #FCD34D; font-weight: 800;">🥇 #1</span>'
+        elif rank_idx == 2:
+            rank_badge = '<span class="badge" style="background: #F1F5F9; color: #334155; border: 1.5px solid #CBD5E1; font-weight: 800;">🥈 #2</span>'
+        elif rank_idx == 3:
+            rank_badge = '<span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1.5px solid #BFDBFE; font-weight: 800;">🥉 #3</span>'
+        else:
+            rank_badge = f'<span class="badge" style="background: #F8FAFC; color: #64748B; border: 1px solid #E2E8F0; font-weight: 700;">#{rank_idx}</span>'
+
+        is_core = m.get("id") in ["wv3_native_segformer", "cartosat_pan_segformer", "wv3_native_unet"]
+        cat_badge = '<span class="badge badge-ready">🌟 Core</span>' if is_core else '<span class="badge" style="background: #F5F3FF; color: #7C3AED; border: 1px solid #DDD6FE;">👥 Contributed</span>'
         m_gsd = safe_num(m.get('native_gsd_m'), 1.0)
         m_desc = m.get('description') or "Empirical model checkpoint."
         m_arch = m.get('architecture') or "Deep Neural Network"
@@ -177,7 +219,8 @@ def render_leaderboard_page():
 
         rows += f"""
         <tr style="border-bottom: 1px solid #E2E8F0;">
-            <td style="padding: 12px 10px;">{badge}</td>
+            <td style="padding: 12px 8px; text-align: center;">{rank_badge}</td>
+            <td style="padding: 12px 10px;">{cat_badge}</td>
             <td style="padding: 12px 12px; font-weight: 700; color: #0F172A;">
                 {m_dname}<br><span style="font-size: 0.82rem; color: #64748B; font-weight: 500;">{m_arch}</span>
             </td>
@@ -195,10 +238,11 @@ def render_leaderboard_page():
 
     st.markdown(f"""
     <div style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: 14px; overflow-x: auto; box-shadow: 0 2px 8px rgba(15,23,42,0.04);">
-        <table style="width: 100%; border-collapse: collapse; font-size: 1.02rem; text-align: left; min-width: 1040px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 1.02rem; text-align: left; min-width: 1080px;">
             <thead>
                 <tr style="background: #F8FAFC; border-bottom: 2px solid #CBD5E1;">
-                    <th style="padding: 14px 12px; color: #475569; font-weight: 800;">Category</th>
+                    <th style="padding: 14px 8px; color: #475569; font-weight: 800; text-align: center;">Rank</th>
+                    <th style="padding: 14px 10px; color: #475569; font-weight: 800;">Source</th>
                     <th style="padding: 14px 14px; color: #0F172A; font-weight: 800;">Model & Architecture</th>
                     <th style="padding: 14px 12px; color: #475569; font-weight: 800;">Sensor / GSD</th>
                     <th style="padding: 14px 12px; color: #1D4ED8; font-weight: 800;">Overall Acc.</th>
