@@ -19,7 +19,10 @@ from model_registry import (
     save_dynamic_model,
     delete_dynamic_model,
     get_all_models,
-    get_dynamic_models
+    get_dynamic_models,
+    get_model_by_id,
+    rename_model,
+    reset_model_name
 )
 from inference.github_importer import (
     parse_github_url,
@@ -35,7 +38,62 @@ os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 
 def render_teammate_hub_page():
-    st.markdown('<div class="section-header" style="margin-top: 0;">📦 Model Registration & GitHub Deployment Engine</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header" style="margin-top: 0;">📦 Model Registry & Management Engine</div>', unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # TOP SECTION: Model Registry Renaming & Customization (Permanent, Clean, Zero-Popup)
+    # -------------------------------------------------------------------------
+    st.markdown("""
+    <div style="background: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 14px; padding: 20px 24px; margin-bottom: 22px; box-shadow: 0 2px 8px rgba(15,23,42,0.03);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+            <div style="font-size: 1.18rem; font-weight: 800; color: #0F172A;">
+                🏷️ Rename Models (Permanent Model Registry Alias)
+            </div>
+            <span style="font-size: 0.82rem; background: #EEF2FF; color: #4338CA; padding: 3px 12px; border-radius: 6px; font-weight: 700; border: 1px solid #C7D2FE;">
+                Global Custom Display Names
+            </span>
+        </div>
+        <div style="font-size: 0.94rem; color: #64748B; margin-bottom: 16px; line-height: 1.5;">
+            Select any registered model below to assign a clean custom display name. The new name applies permanently across all model dropdowns, multi-model comparisons, leaderboard rankings, and exported reports.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    all_m_reg = get_all_models()
+    c_sel, c_txt, c_btn1, c_btn2 = st.columns([2.2, 2.2, 1.0, 1.0], gap="medium")
+    with c_sel:
+        m_pick = st.selectbox(
+            "Select Model to Rename:",
+            options=[m["id"] for m in all_m_reg],
+            format_func=lambda x: next((m["display_name"] for m in all_m_reg if m["id"] == x), x),
+            key="hub_top_rename_sel"
+        )
+    curr_m = get_model_by_id(m_pick) or all_m_reg[0]
+    with c_txt:
+        m_new_name = st.text_input(
+            "New Display Name:",
+            value=curr_m.get("display_name", ""),
+            key="hub_top_rename_val",
+            help="Type your preferred model name and click 'Save Name'."
+        )
+    with c_btn1:
+        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+        if st.button("💾 Save Name", key="hub_top_save_name", use_container_width=True, type="primary"):
+            if m_new_name.strip():
+                rename_model(m_pick, m_new_name.strip())
+                st.toast(f"Renamed: {m_new_name.strip()}", icon="✅")
+                st.rerun()
+    with c_btn2:
+        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+        if st.button("↺ Reset", key="hub_top_reset_name", use_container_width=True, help="Reset to original default name"):
+            reset_model_name(m_pick)
+            st.toast("Reset to original default name.", icon="↺")
+            st.rerun()
+
+    if curr_m.get("is_custom_renamed"):
+        st.caption(f"ℹ️ Original registration name: *{curr_m.get('default_display_name', '')}*")
+
+    st.markdown("<div style='height: 20px; border-bottom: 1.5px solid #E2E8F0; margin-bottom: 24px;'></div>", unsafe_allow_html=True)
 
     st.markdown("""
     <div style="font-size: 1.0rem; color: #475569; margin-bottom: 22px; font-weight: 500; line-height: 1.5;">
@@ -329,7 +387,7 @@ def render_teammate_hub_page():
                     except Exception as e:
                         st.error(f"Failed to import manifest: {e}")
 
-        st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
         t_models = get_teammate_models()
         if not t_models:

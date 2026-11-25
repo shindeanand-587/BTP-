@@ -84,7 +84,7 @@ tab_pred, tab_comp, tab_leaderboard, tab_teammates = st.tabs([
     "🎯 Feature Extraction",
     "🔬 Multi-Model Comparison",
     "🏆 Model Leaderboard",
-    "📦 Model Registration & GitHub Importer"
+    "📦 Model Registry & Management"
 ])
 
 with tab_pred:

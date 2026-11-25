@@ -87,6 +87,56 @@ def stretch_8bit(band: np.ndarray, p_min: float = 2.0, p_max: float = 98.0) -> n
     stretched = np.clip((band - vmin) / (vmax - vmin) * 255.0, 0, 255)
     return stretched.astype(np.uint8)
 
+def _parse_shp_binary_fallback(data_bytes: bytes):
+    """
+    Direct zero-dependency binary ESRI Shapefile parser fallback.
+    Recovers valid shapes if pyshp encounters strict header/ring validation issues (e.g. CorruptShpShapeRecord).
+    """
+    import struct
+    if len(data_bytes) < 100:
+        return [], (0, 0, 1, 1)
+    try:
+        file_code = struct.unpack('>i', data_bytes[0:4])[0]
+        if file_code != 9994:
+            return [], (0, 0, 1, 1)
+        xmin, ymin, xmax, ymax = struct.unpack('<dddd', data_bytes[36:68])
+        pos = 100
+        shapes_list = []
+        class FallbackShape:
+            def __init__(self, shape_type, points, bbox):
+                self.shapeType = shape_type
+                self.points = points
+                self.bbox = bbox
+                self.__geo_interface__ = {
+                    "type": "Polygon" if shape_type in (5, 15) else "LineString",
+                    "coordinates": [points] if shape_type in (5, 15) else points
+                }
+
+        while pos + 8 <= len(data_bytes):
+            rec_id, content_len = struct.unpack('>ii', data_bytes[pos:pos+8])
+            content_bytes = content_len * 2
+            rec_data = data_bytes[pos+8:pos+8+content_bytes]
+            if len(rec_data) < 4:
+                break
+            stype = struct.unpack('<i', rec_data[0:4])[0]
+            if stype in (3, 5, 13, 15):
+                if len(rec_data) >= 44:
+                    p_bbox = struct.unpack('<dddd', rec_data[4:36])
+                    n_parts, n_pts = struct.unpack('<ii', rec_data[36:44])
+                    offset = 44 + n_parts * 4
+                    pts = []
+                    for i in range(n_pts):
+                        if offset + (i+1)*16 <= len(rec_data):
+                            px, py = struct.unpack('<dd', rec_data[offset + i*16 : offset + (i+1)*16])
+                            pts.append((px, py))
+                    if pts:
+                        shapes_list.append(FallbackShape(stype, pts, p_bbox))
+            pos += 8 + content_bytes
+        return shapes_list, (xmin, ymin, xmax, ymax)
+    except Exception:
+        return [], (0, 0, 1, 1)
+
+
 def load_shapefile_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
     """
     Ingests ESRI Shapefiles (.shp, .zip containing shapefile, or .geojson),
@@ -126,12 +176,46 @@ def load_shapefile_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
     else:
         reader_kwargs['shp'] = io.BytesIO(file_bytes)
 
-    r = shapefile.Reader(**reader_kwargs)
-    shapes = r.shapes()
-    if not shapes:
-        raise ValueError(f"Shapefile '{filename}' contains 0 geometric features.")
+    shapes = []
+    bbox = None
+    try:
+        r = shapefile.Reader(**reader_kwargs)
+        shapes = r.shapes()
+        bbox = r.bbox
+    except Exception as e_pyshp:
+        # Fallback 1: Iterative recovery skipping malformed individual records
+        try:
+            r = shapefile.Reader(**reader_kwargs)
+            for s in r.iterShapes():
+                shapes.append(s)
+            bbox = getattr(r, 'bbox', None)
+        except Exception:
+            pass
 
-    xmin, ymin, xmax, ymax = r.bbox
+    # Fallback 2: Direct binary recovery
+    if not shapes and 'shp' in reader_kwargs:
+        raw_data = reader_kwargs['shp'].getvalue()
+        f_shapes, f_bbox = _parse_shp_binary_fallback(raw_data)
+        if f_shapes:
+            shapes = f_shapes
+            bbox = f_bbox
+
+    if not shapes:
+        raise ValueError(
+            f"Shapefile '{filename}' could not be parsed or contains 0 valid geometries. "
+            "Standalone .shp files often lack attribute tables (.dbf) or spatial indexes (.shx). "
+            "Please upload the complete shapefile as a .ZIP archive (containing .shp, .shx, .dbf, .prj)."
+        )
+
+    if bbox is None or len(bbox) < 4:
+        all_x = [p[0] for s in shapes for p in getattr(s, 'points', [])]
+        all_y = [p[1] for s in shapes for p in getattr(s, 'points', [])]
+        if all_x and all_y:
+            bbox = (min(all_x), min(all_y), max(all_x), max(all_y))
+        else:
+            bbox = (0, 0, 1, 1)
+
+    xmin, ymin, xmax, ymax = bbox
     dx = max(1e-6, xmax - xmin)
     dy = max(1e-6, ymax - ymin)
 
@@ -142,8 +226,12 @@ def load_shapefile_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
     is_road = any(w in fn_low for w in ["road", "street", "highway", "avenue", "traffic", "lane", "network"])
     is_built = any(w in fn_low for w in ["built", "structure", "building", "parcel", "house", "footprint"])
     is_water = any(w in fn_low for w in ["water", "creek", "river", "bay", "ocean", "sea", "lake", "drain"])
+    is_boundary = (
+        any(w in fn_low for w in ["band", "extent", "boundary", "aoi", "border", "perimeter", "bbox"])
+        or (len(shapes) == 1 and getattr(shapes[0], 'shapeType', 0) in (shapefile.POLYGON, shapefile.POLYGONZ, shapefile.POLYGONM, 5, 15, 25) and not (is_road or is_built or is_water))
+    )
 
-    target_class = 4 if is_road else (3 if is_built else (0 if is_water else 4))
+    target_class = 255 if is_boundary else (4 if is_road else (3 if is_built else (0 if is_water else 4)))
 
     import math
     tot_len_m = 0.0
@@ -158,7 +246,7 @@ def load_shapefile_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
              int(round((ymax - y) / dy * (h_px - 1))))
             for x, y in pts
         ]
-        is_poly = s.shapeType in (shapefile.POLYGON, shapefile.POLYGONZ, shapefile.POLYGONM)
+        is_poly = getattr(s, 'shapeType', 0) in (shapefile.POLYGON, shapefile.POLYGONZ, shapefile.POLYGONM, 5, 15)
         if not is_poly and is_road:
             vector_polylines.append(pix_pts)
 
@@ -196,7 +284,7 @@ def load_shapefile_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
                  int(round((ymax - y) / dy * (h_px - 1))))
                 for x, y in s.points
             ]
-            if s.shapeType in (shapefile.POLYGON, shapefile.POLYGONZ, shapefile.POLYGONM):
+            if getattr(s, 'shapeType', 0) in (shapefile.POLYGON, shapefile.POLYGONZ, shapefile.POLYGONM, 5, 15):
                 draw_mask.polygon(pix_pts, fill=target_class)
             else:
                 draw_mask.line(pix_pts, fill=target_class, width=6)
@@ -211,12 +299,33 @@ def load_shapefile_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
 
     # Generate crisp survey preview image
     rgb_preview = np.full((h_px, w_px, 3), (15, 23, 42), dtype=np.uint8)
-    if (vector_mask == 4).any():
-        rgb_preview[vector_mask == 4] = (250, 204, 21) # Vibrant Gold for Roads
-    if (vector_mask == 3).any():
-        rgb_preview[vector_mask == 3] = (225, 29, 72)  # High-vis Crimson for Built-up
-    if (vector_mask == 0).any():
-        rgb_preview[vector_mask == 0] = (8, 102, 255)  # Azure Blue for Water
+    if is_boundary:
+        pil_preview = Image.fromarray(rgb_preview)
+        draw = ImageDraw.Draw(pil_preview)
+        # Cartographic coordinate grid
+        for x in range(0, w_px, 128):
+            draw.line([(x, 0), (x, h_px)], fill=(30, 41, 59), width=1)
+        for y in range(0, h_px, 128):
+            draw.line([(0, y), (w_px, y)], fill=(30, 41, 59), width=1)
+        # Study area boundary with glowing cyan border and subtle dark-blue fill
+        for s in shapes:
+            if not s.points:
+                continue
+            pix_pts = [
+                (int(round((x - xmin) / dx * (w_px - 1))),
+                 int(round((ymax - y) / dy * (h_px - 1))))
+                for x, y in s.points
+            ]
+            draw.polygon(pix_pts, fill=(23, 37, 84))
+            draw.line(pix_pts, fill=(56, 189, 248), width=5)
+        rgb_preview = np.array(pil_preview)
+    else:
+        if (vector_mask == 4).any():
+            rgb_preview[vector_mask == 4] = (250, 204, 21) # Vibrant Gold for Roads
+        if (vector_mask == 3).any():
+            rgb_preview[vector_mask == 3] = (225, 29, 72)  # High-vis Crimson for Built-up
+        if (vector_mask == 0).any():
+            rgb_preview[vector_mask == 0] = (8, 102, 255)  # Azure Blue for Water
 
     raw_array = np.transpose(rgb_preview.astype(np.float32), (2, 0, 1))
 
@@ -234,7 +343,7 @@ def load_shapefile_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
         height=h_px,
         width=w_px,
         dtype="uint8",
-        file_format="ESRI Shapefile Vector (.shp)",
+        file_format="ESRI Shapefile Boundary (.shp)" if is_boundary else "ESRI Shapefile Vector (.shp)",
         is_georeferenced=True,
         crs=crs_str[:120] if crs_str else "Project Vector CRS",
         bounds=(xmin, ymin, xmax, ymax),
@@ -242,13 +351,16 @@ def load_shapefile_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:
         filename=filename
     )
     bundle.is_vector = True
+    bundle.is_boundary = is_boundary
+    bundle.boundary_extent_km = (round((dx if dx > 1000 else dx * 111000.0) / 1000.0, 2),
+                                 round((dy if dy > 1000 else dy * 111000.0) / 1000.0, 2))
     bundle.vector_mask = vector_mask
     bundle.vector_centerlines = centerline_arr
     bundle.vector_polylines = vector_polylines
     bundle.total_vector_length_km = tot_len_m / 1000.0
     bundle.vector_feature_count = len(shapes)
-    bundle.vector_shape_type = getattr(r, "shapeTypeName", "Vector")
-    bundle.vector_domain = "roads" if is_road else ("builtup" if is_built else ("water" if is_water else "mixed"))
+    bundle.vector_shape_type = "AOI Scene Boundary Footprint" if is_boundary else getattr(r, "shapeTypeName", "Vector")
+    bundle.vector_domain = "boundary" if is_boundary else ("roads" if is_road else ("builtup" if is_built else ("water" if is_water else "mixed")))
     return bundle
 
 def load_geojson_bundle(file_bytes: bytes, filename: str) -> ImageInputBundle:

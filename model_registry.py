@@ -221,12 +221,117 @@ GLOBAL_DYNAMIC_REGISTRY: Dict[str, Dict[str, Any]] = {}
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DYNAMIC_REGISTRY_FILE = os.path.join(BASE_DIR, "teammate_models.json")
 SECONDARY_REGISTRY_FILE = os.path.join(os.path.expanduser("~"), ".urban_platform", "teammate_models.json")
+CUSTOM_NAMES_FILE = os.path.join(BASE_DIR, "custom_model_names.json")
+SECONDARY_CUSTOM_NAMES_FILE = os.path.join(os.path.expanduser("~"), ".urban_platform", "custom_model_names.json")
+
+def get_custom_model_names() -> Dict[str, str]:
+    """Retrieves custom user-defined display names/aliases for models across persistence tiers."""
+    names: Dict[str, str] = {}
+    if os.path.exists(CUSTOM_NAMES_FILE):
+        try:
+            with open(CUSTOM_NAMES_FILE, "r", encoding="utf-8") as f:
+                d = json.load(f)
+                if isinstance(d, dict):
+                    names.update(d)
+        except Exception:
+            pass
+
+    if os.path.exists(SECONDARY_CUSTOM_NAMES_FILE):
+        try:
+            with open(SECONDARY_CUSTOM_NAMES_FILE, "r", encoding="utf-8") as f:
+                d = json.load(f)
+                if isinstance(d, dict):
+                    for k, v in d.items():
+                        if k not in names:
+                            names[k] = str(v)
+        except Exception:
+            pass
+
+    try:
+        import streamlit as st
+        if hasattr(st, "session_state") and "custom_model_names" in st.session_state:
+            s_names = st.session_state["custom_model_names"]
+            if isinstance(s_names, dict):
+                names.update(s_names)
+    except Exception:
+        pass
+
+    return names
+
+def rename_model(model_id: str, new_display_name: str) -> bool:
+    """Sets a custom display name / alias for any model (core, preset, or teammate)."""
+    if not model_id or not str(new_display_name).strip():
+        return False
+    clean_name = str(new_display_name).strip()
+    names = get_custom_model_names()
+    names[model_id] = clean_name
+
+    # 1. Update Streamlit session state
+    try:
+        import streamlit as st
+        if hasattr(st, "session_state"):
+            if "custom_model_names" not in st.session_state:
+                st.session_state["custom_model_names"] = {}
+            st.session_state["custom_model_names"][model_id] = clean_name
+    except Exception:
+        pass
+
+    # 2. Persist to local JSON file
+    try:
+        with open(CUSTOM_NAMES_FILE, "w", encoding="utf-8") as f:
+            json.dump(names, f, indent=2)
+    except Exception as e:
+        print(f"Error saving {CUSTOM_NAMES_FILE}: {e}")
+
+    # 3. Persist to secondary home directory
+    try:
+        os.makedirs(os.path.dirname(SECONDARY_CUSTOM_NAMES_FILE), exist_ok=True)
+        with open(SECONDARY_CUSTOM_NAMES_FILE, "w", encoding="utf-8") as f:
+            json.dump(names, f, indent=2)
+    except Exception:
+        pass
+
+    return True
+
+def reset_model_name(model_id: str) -> bool:
+    """Resets a model's name back to its original default registration name."""
+    names = get_custom_model_names()
+    if model_id in names:
+        del names[model_id]
+        try:
+            import streamlit as st
+            if hasattr(st, "session_state") and "custom_model_names" in st.session_state:
+                st.session_state["custom_model_names"].pop(model_id, None)
+        except Exception:
+            pass
+        try:
+            with open(CUSTOM_NAMES_FILE, "w", encoding="utf-8") as f:
+                json.dump(names, f, indent=2)
+        except Exception:
+            pass
+        try:
+            with open(SECONDARY_CUSTOM_NAMES_FILE, "w", encoding="utf-8") as f:
+                json.dump(names, f, indent=2)
+        except Exception:
+            pass
+        return True
+    return False
 
 def sanitize_model_dict(m: Dict[str, Any]) -> Dict[str, Any]:
     """Ensures model metadata is completely sanitized with valid numerical types and class metrics."""
     if not isinstance(m, dict):
         return {}
     m = dict(m)
+
+    mid = m.get("id")
+    custom_names = get_custom_model_names()
+    if mid and mid in custom_names:
+        m["default_display_name"] = m.get("default_display_name") or m.get("display_name", "")
+        m["display_name"] = custom_names[mid]
+        m["is_custom_renamed"] = True
+    else:
+        m["default_display_name"] = m.get("default_display_name") or m.get("display_name", "")
+        m["is_custom_renamed"] = False
 
     def _safe_f(v, d=0.0):
         if v is None:
